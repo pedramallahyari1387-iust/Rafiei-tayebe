@@ -66,6 +66,8 @@ def timer():
         time_left -= 1
         time_text.set(f"| Time: {time_left}s |")
         win.after(1000, timer)
+    else:
+        print("Time has run out!")
 
 def up():
     global score
