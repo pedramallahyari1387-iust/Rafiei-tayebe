@@ -5,6 +5,7 @@ win = Tk()
 win.title("Ebb and Flow")
 win.geometry("500x500")
 win.resizable(width=False, height=False)
+win.config(bg="#000047")
 
 directions = [">>>>>", "<<<<<", "^^^^^", "vvvvv"]
 direction = random.choice(directions)
@@ -12,7 +13,7 @@ moving_direction = random.choice(directions)
 
 leaf = Label(win, text=direction)
 leaf.place(x=200, y=100)
-leaf.config(font=("Arial", 30),fg="#0D0D0D")
+leaf.config(font=("Arial", 30), bg="#000047", fg="white")
 
 leaf_x = 200
 leaf_y = 150
@@ -111,7 +112,7 @@ def timer():
         win.after(1000, timer)
     else:
         message_text.set("Time has run out!")
-        message_label.config(bg="#000047", fg="#00FFFF")
+        message_label.config(bg="#ADADAD", fg="#0D0D0D")
         bt1.config(state="disabled")
         bt2.config(state="disabled")
         bt3.config(state="disabled")
@@ -146,6 +147,7 @@ def move_leaf():
 
 def up():
     global score
+
     if mode == "pointing":
         if direction == "^^^^^":
             message_text.set("Correct!")
@@ -164,10 +166,12 @@ def up():
         else:
             message_text.set("Wrong!")
             message_label.config(bg="#470000", fg="#FF0000")
+
     new_direction()
 
 def left():
     global score
+
     if mode == "pointing":
         if direction == "<<<<<":
             message_text.set("Correct!")
@@ -186,10 +190,12 @@ def left():
         else:
             message_text.set("Wrong!")
             message_label.config(bg="#470000", fg="#FF0000")
+
     new_direction()
 
 def right():
     global score
+
     if mode == "pointing":
         if direction == ">>>>>":
             message_text.set("Correct!")
@@ -208,10 +214,12 @@ def right():
         else:
             message_text.set("Wrong!")
             message_label.config(bg="#470000", fg="#FF0000")
+
     new_direction()
 
 def down():
     global score
+
     if mode == "pointing":
         if direction == "vvvvv":
             message_text.set("Correct!")
@@ -230,6 +238,7 @@ def down():
         else:
             message_text.set("Wrong!")
             message_label.config(bg="#470000", fg="#FF0000")
+
     new_direction()
 
 bt1 = Button(win, text="W", command=up)
@@ -248,16 +257,16 @@ bt4 = Button(win, text="D", command=right)
 bt4.place(x=280, y=335)
 bt4.config(width=5)
 
-border_w = Label(win, text="", bg="#FF00FF")
+border_w = Label(win, text="", bg="#ADADAD")
 border_w.place(x=0, y=50, width=500, height=5)
 
-border_s = Label(win, text="", bg="#FF00FF")
+border_s = Label(win, text="", bg="#ADADAD")
 border_s.place(x=0, y=295, width=500, height=5)
 
-border_d = Label(win, text="", bg="#FF00FF")
+border_d = Label(win, text="", bg="#ADADAD")
 border_d.place(x=0, y=50, width=5, height=245)
 
-border_a = Label(win, text="", bg="#FF00FF")
+border_a = Label(win, text="", bg="#ADADAD")
 border_a.place(x=495, y=50, width=5, height=245)
 
 timer()
