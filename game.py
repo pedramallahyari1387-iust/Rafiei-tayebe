@@ -44,42 +44,74 @@ def new_direction():
 
 def up():
     global score
-    if direction == "^^^^^":
-        print("Correct!")
-        score += 1
-        score_text.set(f"Score: {score}")
+    if mode == "pointing":
+        if direction == "^^^^^":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     else:
-        print("Wrong!")
+        if moving_direction == "^^^^^":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     new_direction()
 
 def left():
     global score
-    if direction == "<<<<<":
-        print("Correct!")
-        score += 1
-        score_text.set(f"Score: {score}")
+    if mode == "pointing":
+        if direction == "<<<<<":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     else:
-        print("Wrong!")
+        if moving_direction == "<<<<<":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     new_direction()
 
 def right():
     global score
-    if direction == ">>>>>":
-        print("Correct!")
-        score += 1
-        score_text.set(f"Score: {score}")
+    if mode == "pointing":
+        if direction == ">>>>>":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     else:
-        print("Wrong!")
+        if moving_direction == ">>>>>":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     new_direction()
 
 def down():
     global score
-    if direction == "vvvvv":
-        print("Correct!")
-        score += 1
-        score_text.set(f"Score: {score}")
+    if mode == "pointing":
+        if direction == "vvvvv":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     else:
-        print("Wrong!")
+        if moving_direction == "vvvvv":
+            print("Correct!")
+            score += 1
+            score_text.set(f"Score: {score}")
+        else:
+            print("Wrong!")
     new_direction()
 
 bt1 = Button(win, text="W", command=up)
