@@ -30,9 +30,11 @@ def update_mode():
     if mode == "pointing":
         pointing_label.config(bg="#008000", fg="white")
         moving_label.config(bg="#ADADAD", fg="#0D0D0D")
+        leaf.config(fg="#00FF00")
     else:
         moving_label.config(bg="#FF5F1F", fg="white")
         pointing_label.config(bg="#ADADAD", fg="#0D0D0D")
+        leaf.config(fg="#FF5F1F")
 
 modes = ["pointing", "moving"]
 mode = random.choice(modes)
