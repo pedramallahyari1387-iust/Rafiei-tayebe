@@ -8,6 +8,7 @@ win.resizable(width=False, height=False)
 
 directions = [">>>>>", "<<<<<", "^^^^^", "vvvvv"]
 direction = random.choice(directions)
+moving_direction = random.choice(directions)
 
 leaf = Label(win, text=direction)
 leaf.place(x=200, y=170)
