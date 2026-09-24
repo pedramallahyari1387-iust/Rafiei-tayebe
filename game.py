@@ -59,6 +59,14 @@ def new_direction():
     moving_leaf.config(text=moving_direction)
     mode_text.set(mode)
 
+def timer():
+    global time_left
+
+    if time_left > 0:
+        time_left -= 1
+        time_text.set(f"| Time: {time_left}s |")
+        win.after(1000, timer)
+
 def up():
     global score
     if mode == "pointing":
@@ -147,4 +155,5 @@ bt4 = Button(win, text="D", command=right)
 bt4.place(x=280, y=340)
 bt4.config(width=5)
 
+timer()
 win.mainloop()
