@@ -28,13 +28,22 @@ mode_label = Label(win, textvariable=mode_text)
 mode_label.place(x=210, y=80)
 mode_label.config(font=("Arial", 15))
 
+time_left = 60
+
+time_text = StringVar()
+time_text.set("| Time: 60s |")
+
+time_label = Label(win, textvariable=time_text)
+time_label.place(x=40, y=0)
+time_label.config(font=("Arial", 15))
+
 score = 0
 
 score_text = StringVar()
-score_text.set("Score: 0")
+score_text.set("| Score: 0 |")
 
 score_label = Label(win, textvariable=score_text)
-score_label.place(x=210, y=50)
+score_label.place(x=200, y=0)
 score_label.config(font=("Arial", 15))
 
 def new_direction():
@@ -56,14 +65,14 @@ def up():
         if direction == "^^^^^":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     else:
         if moving_direction == "^^^^^":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     new_direction()
@@ -74,14 +83,14 @@ def left():
         if direction == "<<<<<":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     else:
         if moving_direction == "<<<<<":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     new_direction()
@@ -92,14 +101,14 @@ def right():
         if direction == ">>>>>":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     else:
         if moving_direction == ">>>>>":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     new_direction()
@@ -110,14 +119,14 @@ def down():
         if direction == "vvvvv":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     else:
         if moving_direction == "vvvvv":
             print("Correct!")
             score += 1
-            score_text.set(f"Score: {score}")
+            score_text.set(f"| Score: {score} |")
         else:
             print("Wrong!")
     new_direction()
