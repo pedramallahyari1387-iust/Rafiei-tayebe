@@ -13,6 +13,16 @@ leaf = Label(win, text=direction)
 leaf.place(x=200, y=170)
 leaf.config(font=("Arial", 30))
 
+modes = ["pointing", "moving"]
+mode = random.choice(modes)
+
+mode_text = StringVar()
+mode_text.set(mode)
+
+mode_label = Label(win, textvariable=mode_text)
+mode_label.place(x=210, y=80)
+mode_label.config(font=("Arial", 15))
+
 score = 0
 
 score_text = StringVar()
