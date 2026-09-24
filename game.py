@@ -40,12 +40,15 @@ score_label.config(font=("Arial", 15))
 def new_direction():
     global direction
     global moving_direction
+    global mode
 
     direction = random.choice(directions)
     moving_direction = random.choice(directions)
+    mode = random.choice(modes)
 
     leaf.config(text=direction)
     moving_leaf.config(text=moving_direction)
+    mode_text.set(mode)
 
 def up():
     global score
