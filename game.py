@@ -14,16 +14,28 @@ leaf.place(x=200, y=170)
 leaf.config(font=("Arial", 30))
 
 def up():
-    print("up")
+    if direction == "^^^^^":
+        print("Correct!")
+    else:
+        print("Wrong!")
 
 def left():
-    print("left")
+    if direction == "<<<<<":
+        print("Correct!")
+    else:
+        print("Wrong!")
 
 def right():
-    print("right")
+    if direction == ">>>>>":
+        print("Correct!")
+    else:
+        print("Wrong!")
 
 def down():
-    print("down")
+    if direction == "vvvvv":
+        print("Correct!")
+    else:
+        print("Wrong!")
 
 bt1 = Button(win, text="W", command=up)
 bt1.place(x=230, y=300)
