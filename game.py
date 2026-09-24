@@ -18,21 +18,14 @@ moving_leaf = Label(win, text=moving_direction)
 moving_leaf.place(x=200, y=230)
 moving_leaf.config(font=("Arial", 30))
 
-modes = ["pointing", "moving"]
-mode = random.choice(modes)
 pointing_label = Label(win, text="POINTING")
 pointing_label.place(x=130, y=420, width=100, height=40)
 pointing_label.config(font=("Arial", 12), bg="#ADADAD", fg="#0D0D0D")
 
-mode_text = StringVar()
-mode_text.set(mode)
 moving_label = Label(win, text="MOVING")
 moving_label.place(x=270, y=420, width=100, height=40)
 moving_label.config(font=("Arial", 12), bg="#ADADAD", fg="#0D0D0D")
 
-mode_label = Label(win, textvariable=mode_text)
-mode_label.place(x=210, y=80)
-mode_label.config(font=("Arial", 15))
 def update_mode():
     if mode == "pointing":
         pointing_label.config(bg="#008000", fg="white")
@@ -87,7 +80,6 @@ def new_direction():
 
     leaf.config(text=direction)
     moving_leaf.config(text=moving_direction)
-    mode_text.set(mode)
     update_mode()
     stage_text.set(f"Stage: {stage}")
 
