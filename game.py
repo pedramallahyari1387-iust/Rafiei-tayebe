@@ -13,35 +13,56 @@ leaf = Label(win, text=direction)
 leaf.place(x=200, y=170)
 leaf.config(font=("Arial", 30))
 
+score = 0
+
+score_text = StringVar()
+score_text.set("Score: 0")
+
+score_label = Label(win, textvariable=score_text)
+score_label.place(x=210, y=50)
+score_label.config(font=("Arial", 15))
+
 def new_direction():
     global direction
     direction = random.choice(directions)
     leaf.config(text=direction)
 
 def up():
+    global score
     if direction == "^^^^^":
         print("Correct!")
+        score += 1
+        score_text.set(f"Score: {score}")
     else:
         print("Wrong!")
     new_direction()
 
 def left():
+    global score
     if direction == "<<<<<":
         print("Correct!")
+        score += 1
+        score_text.set(f"Score: {score}")
     else:
         print("Wrong!")
     new_direction()
 
 def right():
+    global score
     if direction == ">>>>>":
         print("Correct!")
+        score += 1
+        score_text.set(f"Score: {score}")
     else:
         print("Wrong!")
     new_direction()
 
 def down():
+    global score
     if direction == "vvvvv":
         print("Correct!")
+        score += 1
+        score_text.set(f"Score: {score}")
     else:
         print("Wrong!")
     new_direction()
