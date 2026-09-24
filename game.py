@@ -20,14 +20,32 @@ moving_leaf.config(font=("Arial", 30))
 
 modes = ["pointing", "moving"]
 mode = random.choice(modes)
+pointing_label = Label(win, text="POINTING")
+pointing_label.place(x=130, y=420, width=100, height=40)
+pointing_label.config(font=("Arial", 12), bg="#ADADAD", fg="#0D0D0D")
 
 mode_text = StringVar()
 mode_text.set(mode)
+moving_label = Label(win, text="MOVING")
+moving_label.place(x=270, y=420, width=100, height=40)
+moving_label.config(font=("Arial", 12), bg="#ADADAD", fg="#0D0D0D")
 
 mode_label = Label(win, textvariable=mode_text)
 mode_label.place(x=210, y=80)
 mode_label.config(font=("Arial", 15))
+def update_mode():
+    if mode == "pointing":
+        pointing_label.config(bg="#008000", fg="white")
+        moving_label.config(bg="#ADADAD", fg="#0D0D0D")
+    else:
+        moving_label.config(bg="#FF5F1F", fg="white")
+        pointing_label.config(bg="#ADADAD", fg="#0D0D0D")
 
+modes = ["pointing", "moving"]
+mode = random.choice(modes)
+update_mode()
+
+#---
 time_left = 60
 
 time_text = StringVar()
@@ -36,7 +54,7 @@ time_text.set("Time: 60s")
 time_label = Label(win, textvariable=time_text)
 time_label.place(x=30, y=5, width=100, height=35)
 time_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
-
+#---
 score = 0
 
 score_text = StringVar()
@@ -45,7 +63,7 @@ score_text.set("Score: 0")
 score_label = Label(win, textvariable=score_text)
 score_label.place(x=200, y=5, width=100, height=35)
 score_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
-
+#---
 stage = 1
 
 stage_text = StringVar()
@@ -54,6 +72,7 @@ stage_text.set(f"Stage: {stage}")
 stage_label = Label(win, textvariable=stage_text)
 stage_label.place(x=370, y=5, width=100, height=35)
 stage_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
+#---
 
 def new_direction():
     global direction
@@ -69,6 +88,7 @@ def new_direction():
     leaf.config(text=direction)
     moving_leaf.config(text=moving_direction)
     mode_text.set(mode)
+    update_mode()
     stage_text.set(f"Stage: {stage}")
 
 def timer():
