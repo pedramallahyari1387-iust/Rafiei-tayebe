@@ -13,29 +13,38 @@ leaf = Label(win, text=direction)
 leaf.place(x=200, y=170)
 leaf.config(font=("Arial", 30))
 
+def new_direction():
+    global direction
+    direction = random.choice(directions)
+    leaf.config(text=direction)
+
 def up():
     if direction == "^^^^^":
         print("Correct!")
     else:
         print("Wrong!")
+    new_direction()
 
 def left():
     if direction == "<<<<<":
         print("Correct!")
     else:
         print("Wrong!")
+    new_direction()
 
 def right():
     if direction == ">>>>>":
         print("Correct!")
     else:
         print("Wrong!")
+    new_direction()
 
 def down():
     if direction == "vvvvv":
         print("Correct!")
     else:
         print("Wrong!")
+    new_direction()
 
 bt1 = Button(win, text="W", command=up)
 bt1.place(x=230, y=300)
