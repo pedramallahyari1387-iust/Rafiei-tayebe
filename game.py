@@ -31,29 +31,29 @@ mode_label.config(font=("Arial", 15))
 time_left = 60
 
 time_text = StringVar()
-time_text.set("| Time: 60s |")
+time_text.set("Time: 60s")
 
 time_label = Label(win, textvariable=time_text)
-time_label.place(x=40, y=0)
-time_label.config(font=("Arial", 15))
+time_label.place(x=30, y=5, width=100, height=35)
+time_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
 
 score = 0
 
 score_text = StringVar()
-score_text.set("| Score: 0 |")
+score_text.set("Score: 0")
 
 score_label = Label(win, textvariable=score_text)
-score_label.place(x=200, y=0)
-score_label.config(font=("Arial", 15))
+score_label.place(x=200, y=5, width=100, height=35)
+score_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
 
 stage = 1
 
 stage_text = StringVar()
-stage_text.set(f"| Stage: {stage} |")
+stage_text.set(f"Stage: {stage}")
 
 stage_label = Label(win, textvariable=stage_text)
-stage_label.place(x=350, y=0)
-stage_label.config(font=("Arial", 15))
+stage_label.place(x=370, y=5, width=100, height=35)
+stage_label.config(font=("Arial", 15), bg="#ADADAD", fg="#0D0D0D")
 
 def new_direction():
     global direction
@@ -69,14 +69,14 @@ def new_direction():
     leaf.config(text=direction)
     moving_leaf.config(text=moving_direction)
     mode_text.set(mode)
-    stage_text.set(f"| Stage: {stage} |")
+    stage_text.set(f"Stage: {stage}")
 
 def timer():
     global time_left
 
     if time_left > 0:
         time_left -= 1
-        time_text.set(f"| Time: {time_left}s |")
+        time_text.set(f"Time: {time_left}s")
         win.after(1000, timer)
     else:
         print("Time has run out!")
@@ -91,14 +91,14 @@ def up():
         if direction == "^^^^^":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     else:
         if moving_direction == "^^^^^":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     new_direction()
@@ -109,14 +109,14 @@ def left():
         if direction == "<<<<<":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     else:
         if moving_direction == "<<<<<":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     new_direction()
@@ -127,14 +127,14 @@ def right():
         if direction == ">>>>>":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     else:
         if moving_direction == ">>>>>":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     new_direction()
@@ -145,14 +145,14 @@ def down():
         if direction == "vvvvv":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     else:
         if moving_direction == "vvvvv":
             print("Correct!")
             score += 1
-            score_text.set(f"| Score: {score} |")
+            score_text.set(f"Score: {score}")
         else:
             print("Wrong!")
     new_direction()
