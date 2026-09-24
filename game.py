@@ -68,6 +68,10 @@ def timer():
         win.after(1000, timer)
     else:
         print("Time has run out!")
+        bt1.config(state="disabled")
+        bt2.config(state="disabled")
+        bt3.config(state="disabled")
+        bt4.config(state="disabled")
 
 def up():
     global score
