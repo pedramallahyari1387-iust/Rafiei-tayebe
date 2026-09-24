@@ -11,12 +11,12 @@ direction = random.choice(directions)
 moving_direction = random.choice(directions)
 
 leaf = Label(win, text=direction)
-leaf.place(x=200, y=170)
-leaf.config(font=("Arial", 30))
+leaf.place(x=200, y=100)
+leaf.config(font=("Arial", 30),fg="#008000")
 
 moving_leaf = Label(win, text=moving_direction)
-moving_leaf.place(x=200, y=230)
-moving_leaf.config(font=("Arial", 30))
+moving_leaf.place(x=200, y=160)
+moving_leaf.config(font=("Arial", 30),fg="#FF5F1F")
 
 pointing_label = Label(win, text="POINTING")
 pointing_label.place(x=130, y=420, width=100, height=40)
@@ -37,6 +37,13 @@ def update_mode():
 modes = ["pointing", "moving"]
 mode = random.choice(modes)
 update_mode()
+
+message_text = StringVar()
+message_text.set("START")
+
+message_label = Label(win, textvariable=message_text)
+message_label.place(x=0, y=330, width=500, height=70)
+message_label.config(font=("Arial", 20), bg="#ADADAD", fg="#0D0D0D")
 
 #---
 time_left = 60
@@ -91,7 +98,8 @@ def timer():
         time_text.set(f"Time: {time_left}s")
         win.after(1000, timer)
     else:
-        print("Time has run out!")
+        message_text.set("Time has run out!")
+        message_label.config(bg="#000047", fg="#00FFFF")
         bt1.config(state="disabled")
         bt2.config(state="disabled")
         bt3.config(state="disabled")
@@ -101,88 +109,104 @@ def up():
     global score
     if mode == "pointing":
         if direction == "^^^^^":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     else:
         if moving_direction == "^^^^^":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     new_direction()
 
 def left():
     global score
     if mode == "pointing":
         if direction == "<<<<<":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     else:
         if moving_direction == "<<<<<":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     new_direction()
 
 def right():
     global score
     if mode == "pointing":
         if direction == ">>>>>":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     else:
         if moving_direction == ">>>>>":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     new_direction()
 
 def down():
     global score
     if mode == "pointing":
         if direction == "vvvvv":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     else:
         if moving_direction == "vvvvv":
-            print("Correct!")
+            message_text.set("Correct!")
+            message_label.config(bg="#004700", fg="#00FF00")
             score += 1
             score_text.set(f"Score: {score}")
         else:
-            print("Wrong!")
+            message_text.set("Wrong!")
+            message_label.config(bg="#470000", fg="#FF0000")
     new_direction()
 
 bt1 = Button(win, text="W", command=up)
-bt1.place(x=230, y=300)
+bt1.place(x=230, y=230)
 bt1.config(width=5)
 
 bt2 = Button(win, text="A", command=left)
-bt2.place(x=180, y=340)
+bt2.place(x=180, y=270)
 bt2.config(width=5)
 
 bt3 = Button(win, text="S", command=down)
-bt3.place(x=230, y=340)
+bt3.place(x=230, y=270)
 bt3.config(width=5)
 
 bt4 = Button(win, text="D", command=right)
-bt4.place(x=280, y=340)
+bt4.place(x=280, y=270)
 bt4.config(width=5)
 
 timer()
