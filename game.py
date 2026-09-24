@@ -46,18 +46,30 @@ score_label = Label(win, textvariable=score_text)
 score_label.place(x=200, y=0)
 score_label.config(font=("Arial", 15))
 
+stage = 1
+
+stage_text = StringVar()
+stage_text.set(f"| Stage: {stage} |")
+
+stage_label = Label(win, textvariable=stage_text)
+stage_label.place(x=350, y=0)
+stage_label.config(font=("Arial", 15))
+
 def new_direction():
     global direction
     global moving_direction
     global mode
+    global stage
 
     direction = random.choice(directions)
     moving_direction = random.choice(directions)
     mode = random.choice(modes)
+    stage += 1
 
     leaf.config(text=direction)
     moving_leaf.config(text=moving_direction)
     mode_text.set(mode)
+    stage_text.set(f"| Stage: {stage} |")
 
 def timer():
     global time_left
