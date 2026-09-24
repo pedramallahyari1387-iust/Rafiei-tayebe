@@ -14,6 +14,10 @@ leaf = Label(win, text=direction)
 leaf.place(x=200, y=170)
 leaf.config(font=("Arial", 30))
 
+moving_leaf = Label(win, text=moving_direction)
+moving_leaf.place(x=200, y=230)
+moving_leaf.config(font=("Arial", 30))
+
 modes = ["pointing", "moving"]
 mode = random.choice(modes)
 
