@@ -234,7 +234,172 @@ A new mode and new directions are also generated.
 
 ---
 
-## 12. Important Note
+## 12. Visual Elements
+
+### 12.1. Screen Layout
+
+The game window is:
+
+800 × 600
+
+### 12.2. Top HUD
+
+The top of the screen contains three panels, arranged from right to left:
+
+1. TIME panel (rightmost)
+2. SCORE panel (middle)
+3. METER + Multiplier panel (left of SCORE)
+
+Layout details:
+
+- The panels are placed with a 5-pixel gap between them.
+- The rightmost panel has a 20-pixel margin from the right edge.
+- The panels use a light blue-gray background with dark text.
+
+Meter panel contains:
+
+- 4 circular indicators
+- Filled circles: dark
+- Empty circles: light gray
+- Multiplier value shown as "xN" at the right of the circles
+
+### 12.3. Bottom HUD
+
+The bottom of the screen contains two buttons:
+
+- POINTING (left)
+- MOVING (right)
+
+Layout details:
+
+- The buttons are centered horizontally.
+- A 10-pixel gap separates them.
+- The buttons touch the bottom edge of the screen (no bottom margin).
+- Active button: green (POINTING) or orange (MOVING), white text.
+- Inactive button: light gray background, black text.
+
+### 12.4. Pause Button
+
+- Located at the top-left corner of the screen.
+- Size: 48 × 48 pixels.
+- Two vertical bars inside.
+- Normal state: black background, light blue bars.
+- Hover state: blue background, white bars.
+
+### 12.5. Leaves
+
+- Two types: green (POINTING) and orange (MOVING).
+- Leaf sprite aspect ratio: approximately 1 : 1.84 (based on leaf1Sprite).
+- Leaves are distributed across the play area.
+- Leaves do not overlap (grid-based placement with jitter).
+- All leaves share the same visual direction within a round.
+
+### 12.6. Feedback Indicators
+
+- Correct answer: a green checkmark (✓) shown at the center of the screen.
+- Wrong answer: an orange cross (✗) shown at the center of the screen.
+- The indicator is displayed for a short time after the answer.
+
+---
+
+## 13. Visual and Audio Notes
+
+### 13.1. Sound Effects
+
+The recreation uses generated tones as sound effects:
+
+- Correct answer: two ascending tones (880 Hz, then 1320 Hz).
+- Wrong answer: two descending tones (220 Hz, then 160 Hz).
+
+### 13.2. Background Music
+
+- A waterfall sound is played as background music.
+- The music loops continuously during gameplay.
+- The music is stopped when the game ends.
+- The music resumes when the player restarts.
+
+### 13.3. Mute Controls
+
+The pause menu provides two independent mute toggles:
+
+- Mute Sound: disables all sound effects.
+- Mute Music: disables the background music.
+
+The labels change when muted:
+
+- "Mute Sound" → "Sound Muted"
+- "Mute Music" → "Music Muted"
+
+---
+
+## 14. Pause Menu
+
+The pause menu contains the following options, listed vertically:
+
+- Resume
+- Restart
+- Mute Sound / Sound Muted
+- Mute Music / Music Muted
+- Quit
+- How To Play
+
+### 14.1. Menu Behavior
+
+- Menu items are left-aligned.
+- Hovering over an item highlights it with a brighter background and white text.
+- Clicking an item performs its action.
+
+### 14.2. How To Play
+
+Selecting "How To Play" opens a panel with:
+
+- Game instructions
+- A "Back" button to return to the pause menu.
+
+### 14.3. Visual During Pause
+
+While the pause menu is open:
+
+- Leaves are hidden.
+- The top HUD is hidden.
+- The bottom HUD is hidden.
+- Only the pause menu and a slightly darkened background are visible.
+
+### 14.4. Pause Menu Header
+
+A small "Paused" panel is displayed at the top-left corner of the screen while paused.
+
+- Normal state: light background.
+- Hover state: brighter background.
+
+---
+
+## 15. End Screen
+
+When the game ends (timer reaches zero):
+
+- The top HUD remains visible (TIME, SCORE, METER).
+- The pause button is hidden.
+- The bottom HUD (POINTING / MOVING) is hidden.
+- The background music stops.
+
+The end screen displays:
+
+1. A gray circle in the center containing the final multiplier ("xN").
+2. Below the circle: the text "Score Bonus".
+3. Below that text: the final bonus amount as a number.
+
+The top SCORE panel is updated to show the final score, which includes:
+
+Final Score = Score + Final Bonus
+
+A hint is also shown at the bottom:
+
+"Press R to restart  |  ESC to quit"
+
+---
+
+## 16. Important Note
 
 The rules above describe the rules implemented in this Python recreation.
 
@@ -246,5 +411,13 @@ Some numerical values such as:
 - Final bonus
 - Timer duration
 - Movement speed
+- Sound frequencies
+- Visual dimensions
 
 were reconstructed during the recreation process and should not automatically be considered confirmed values from the original Lumosity implementation unless independently verified from the original game.
+
+However, the following values were extracted directly from the game's asset files:
+
+- Leaf sprite aspect ratio (from leaf1Sprite).
+- Leaf color values (from LeafGreen and LeafOrange materials).
+- Background texture (from Texture237).
