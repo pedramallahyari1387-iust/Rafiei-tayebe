@@ -1,30 +1,6 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION
-====================================================================
-بر اساس:
-  • مستندات رسمی Lumosity (قوانین بازی)
-  • assetهای استخراج‌شده از bundle بازی
-  • اسکرین‌شات‌های واقعی بازی
-
-داده‌های استخراج‌شده از asset:
-  • leaf1Sprite  : 70.955 × 130.4    (نسبت ≈ 1:1.84)
-  • LeafGreen    : #5ABE52            (متریال برگ سبز)
-  • LeafOrange   : #FEC20D            (متریال برگ نارنجی)
-  • پس‌زمینه      : Texture237.png      (1282×2048)
-  • Shader       : Custom/Leaf (گرادیان عمودی)
-  • _leafSpacingX = 9 ,  _leafSpacingY = 4.5
-
-قوانین بازی (از مستندات Lumosity):
-  • برگ سبز  → جهت اشاره (POINTING)
-  • برگ نارنجی → جهت حرکت (MOVING)
-  • امتیاز پاسخ درست  = 50 × Multiplier
-  • Meter 5 نقطه → Multiplier +1
-  • پاداش پایان بازی  = 250 × Multiplier نهایی
-
-اجرا:
-  pip install pygame-ce pillow
-  python game.py
+EBB AND FLOW — PYTHON RECREATION (v2 — with SFX + Feedback)
 ====================================================================
 """
 
@@ -32,12 +8,20 @@ import pygame
 import random
 import math
 import os
+import struct
+import array
 
 # ====================================================================
 #  مقداردهی اولیه
 # ====================================================================
 pygame.init()
 pygame.font.init()
+try:
+    pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=512)
+    AUDIO_OK = True
+except Exception as e:
+    print(f"[Audio] mixer init failed: {e}")
+    AUDIO_OK = False
 
 WINDOW_W, WINDOW_H = 1140, 680
 GAME_TOP, GAME_BOTTOM = 70, 600
@@ -48,7 +32,7 @@ pygame.display.set_caption("Ebb and Flow")
 clock = pygame.time.Clock()
 
 # ====================================================================
-#  رنگ‌ها — مستقیماً از متریال‌های استخراج‌شده
+#  رنگ‌ها
 # ====================================================================
 LEAF_GREEN        = (0x5A, 0xBE, 0x52)
 LEAF_GREEN_LIGHT  = (0x8E, 0xE9, 0x67)
@@ -59,7 +43,6 @@ LEAF_OUTLINE      = (0xFF, 0xFF, 0xFF)
 WHITE      = (0xFF, 0xFF, 0xFF)
 BLACK      = (0x00, 0x00, 0x00)
 HUD_BG     = (0x3A, 0x3A, 0x3A)
-HUD_BG2    = (0x4A, 0x4A, 0x4A)
 DOT_ON     = (0xFF, 0xFF, 0xFF)
 DOT_OFF    = (0x55, 0x55, 0x55)
 PAUSE_BAR  = (0x4D, 0xD0, 0xE1)
@@ -69,15 +52,15 @@ MOVING_ACTIVE     = (0xF5, 0xA6, 0x23)
 BTN_INACTIVE      = (0xAA, 0xAA, 0xAA)
 BTN_TEXT_INACTIVE = (0x33, 0x33, 0x33)
 
+CORRECT_GREEN = (0x4C, 0xE0, 0x4C)
+WRONG_RED     = (0xFF, 0x44, 0x44)
+
 BG_FALLBACK = (0x0A, 0x1A, 0x2E)
 
-# ====================================================================
-#  ابعاد برگ — از leaf1Sprite
-# ====================================================================
 LEAF_W, LEAF_H = 55, 100
 
 # ====================================================================
-#  مسیر فایل پس‌زمینه
+#  پس‌زمینه
 # ====================================================================
 BG_CANDIDATES = [
     r"C:\Users\ASUS\Downloads\Texture237.png",
@@ -90,9 +73,6 @@ def find_bg():
             return p
     return None
 
-# ====================================================================
-#  بارگذاری پس‌زمینه
-# ====================================================================
 def load_background():
     path = find_bg()
     if not path:
@@ -118,6 +98,52 @@ def load_background():
 bg_surface = load_background()
 
 # ====================================================================
+#  ساخت صدای مصنوعی (بدون فایل خارجی)
+# ====================================================================
+def make_tone(freq, duration_ms, volume=0.35, wave="sine"):
+    """یه صدا با فرکانس داده‌شده تولید می‌کنه (بدون فایل)."""
+    if not AUDIO_OK:
+        return None
+    sample_rate = 44100
+    n_samples = int(sample_rate * duration_ms / 1000)
+    buf = array.array("h")
+    for i in range(n_samples):
+        t = i / sample_rate
+        if wave == "sine":
+            v = math.sin(2 * math.pi * freq * t)
+        elif wave == "square":
+            v = 1.0 if math.sin(2 * math.pi * freq * t) >= 0 else -1.0
+        else:
+            v = math.sin(2 * math.pi * freq * t)
+        # fade out در ۳۰٪ آخر
+        fade_start = int(n_samples * 0.7)
+        if i > fade_start:
+            v *= 1.0 - (i - fade_start) / (n_samples - fade_start)
+        buf.append(int(v * volume * 32767))
+    try:
+        snd = pygame.mixer.Sound(buffer=buf.tobytes())
+        return snd
+    except Exception as e:
+        print(f"[Audio] tone {freq}Hz failed: {e}")
+        return None
+
+# دو صدای اصلی: درست (دو نت بالا) / غلط (دو نت پایین)
+SFX_CORRECT_1 = make_tone(880, 80, 0.30)   # A5
+SFX_CORRECT_2 = make_tone(1320, 140, 0.28) # E6
+SFX_WRONG_1   = make_tone(220, 120, 0.35)  # A3
+SFX_WRONG_2   = make_tone(160, 180, 0.32)  # E3
+
+def play_correct():
+    if SFX_CORRECT_1: SFX_CORRECT_1.play()
+    if SFX_CORRECT_2:
+        pygame.time.set_timer(pygame.USEREVENT + 5, 90, loops=1)
+
+def play_wrong():
+    if SFX_WRONG_1: SFX_WRONG_1.play()
+    if SFX_WRONG_2:
+        pygame.time.set_timer(pygame.USEREVENT + 6, 130, loops=1)
+
+# ====================================================================
 #  فونت‌ها
 # ====================================================================
 def make_font(size, bold=True):
@@ -128,19 +154,17 @@ def make_font(size, bold=True):
             continue
     return pygame.font.Font(None, size)
 
-font_hud = make_font(22, True)
-font_btn = make_font(24, True)
-font_big = make_font(56, True)
-font_mid = make_font(36, True)
-
-# ====================================================================
-#  جهت‌ها
-# ====================================================================
-DIRS = [">>>>>", "<<<<<", "^^^^^", "vvvvv"]
+font_hud  = make_font(22, True)
+font_btn  = make_font(24, True)
+font_big  = make_font(56, True)
+font_mid  = make_font(36, True)
+font_feed = make_font(64, True)
 
 # ====================================================================
 #  حالت بازی
 # ====================================================================
+DIRS = [">>>>>", "<<<<<", "^^^^^", "vvvvv"]
+
 mode          = random.choice(["pointing", "moving"])
 pointing_dir  = random.choice(DIRS)
 moving_dir    = random.choice(DIRS)
@@ -155,6 +179,11 @@ paused     = False
 NUM_LEAVES = 9
 leaves     = []
 
+# بازخورد (Correct / Wrong)
+feedback_text  = ""
+feedback_color = WHITE
+feedback_timer = 0   # میلی‌ثانیه — با گذشت زمان کم می‌شود
+
 def spawn_leaves():
     global leaves
     leaves = []
@@ -164,52 +193,34 @@ def spawn_leaves():
         leaves.append([x, y])
 
 # ====================================================================
-#  ساخت سطح برگ (بار اول برای هر ترکیب — بعد از کش استفاده می‌شود)
+#  ساخت سطح برگ
 # ====================================================================
 def make_leaf_surface(body_color, light_color, direction):
-    """
-    برگ قطره‌ای/قلبی با:
-      - بدنه رنگ اصلی
-      - خط دور سفید ضخیم
-      - خط روشن وسط (شبیه گرادیان Shader Custom/Leaf)
-      - دم (ساقه) در پشت
-    """
     pad = 40
     w, h = LEAF_W + pad * 2, LEAF_H + pad * 2
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
     cx, cy = w // 2, h // 2
     rx, ry = LEAF_W // 2, LEAF_H // 2
 
-    # زاویه‌ی چرخش بر اساس جهت
-    if direction == ">>>>>":
-        rot = 0
-    elif direction == "vvvvv":
-        rot = math.pi / 2
-    elif direction == "<<<<<":
-        rot = math.pi
-    else:  # ^^^^^
-        rot = -math.pi / 2
+    if direction == ">>>>>":   rot = 0
+    elif direction == "vvvvv": rot = math.pi / 2
+    elif direction == "<<<<<": rot = math.pi
+    else:                       rot = -math.pi / 2
 
-    # ---------- نقاط شکل برگ ----------
     pts = []
     N = 48
     for i in range(N):
         t = i / N * 2 * math.pi
-        # نوک تیز در جهت +x (بعداً چرخانده می‌شود)
         spike = 1.0 + 0.35 * max(0, math.cos(t)) ** 2
         px = rx * math.cos(t) * spike
         py = ry * math.sin(t)
-        # چرخش
         rxp = px * math.cos(rot) - py * math.sin(rot)
         ryp = px * math.sin(rot) + py * math.cos(rot)
         pts.append((cx + rxp, cy + ryp))
 
-    # بدنه
     pygame.draw.polygon(surf, body_color, pts)
-    # خط دور سفید
     pygame.draw.polygon(surf, LEAF_OUTLINE, pts, 4)
 
-    # ---------- خط روشن وسط ----------
     if direction in (">>>>>", "<<<<<"):
         pygame.draw.line(surf, light_color,
                          (cx - rx * 0.65, cy), (cx + rx * 0.65, cy), 5)
@@ -217,7 +228,6 @@ def make_leaf_surface(body_color, light_color, direction):
         pygame.draw.line(surf, light_color,
                          (cx, cy - ry * 0.65), (cx, cy + ry * 0.65), 5)
 
-    # ---------- دم (ساقه) ----------
     stem_len, stem_w = 22, 9
     if direction == ">>>>>":
         rect = pygame.Rect(cx - rx - stem_len, cy - stem_w // 2, stem_len, stem_w)
@@ -225,7 +235,7 @@ def make_leaf_surface(body_color, light_color, direction):
         rect = pygame.Rect(cx + rx, cy - stem_w // 2, stem_len, stem_w)
     elif direction == "^^^^^":
         rect = pygame.Rect(cx - stem_w // 2, cy + ry, stem_w, stem_len)
-    else:  # vvvvv
+    else:
         rect = pygame.Rect(cx - stem_w // 2, cy - ry - stem_len, stem_w, stem_len)
     pygame.draw.rect(surf, body_color, rect)
     pygame.draw.rect(surf, LEAF_OUTLINE, rect, 2)
@@ -240,16 +250,14 @@ def get_leaf(body_color, light_color, direction):
     return _leaf_cache[key]
 
 # ====================================================================
-#  رسم کل صحنه
+#  رسم صحنه
 # ====================================================================
 def draw_scene():
-    # پس‌زمینه
     if bg_surface:
         screen.blit(bg_surface, (0, 0))
     else:
         screen.fill(BG_FALLBACK)
 
-    # رنگ و جهت بر اساس mode
     if mode == "pointing":
         body, light = LEAF_GREEN, LEAF_GREEN_LIGHT
         direction = pointing_dir
@@ -257,7 +265,6 @@ def draw_scene():
         body, light = LEAF_ORANGE, LEAF_ORANGE_LIGHT
         direction = moving_dir
 
-    # رسم برگ‌ها
     surf = get_leaf(body, light, direction)
     sw, sh = surf.get_size()
     off_x = (sw - LEAF_W) // 2
@@ -265,10 +272,9 @@ def draw_scene():
     for lx, ly in leaves:
         screen.blit(surf, (lx - off_x, ly - off_y))
 
-    # HUD
     draw_hud()
+    draw_feedback()
 
-    # Pause
     if paused and not game_over:
         ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 130))
@@ -276,8 +282,10 @@ def draw_scene():
         txt = font_big.render("PAUSED", True, WHITE)
         screen.blit(txt, (WINDOW_W // 2 - txt.get_width() // 2,
                           WINDOW_H // 2 - txt.get_height() // 2))
+        hint = font_hud.render("Press SPACE to resume", True, (200,200,200))
+        screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
+                           WINDOW_H // 2 + 50))
 
-    # Game Over
     if game_over:
         ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 170))
@@ -289,23 +297,36 @@ def draw_scene():
         screen.blit(t2, (WINDOW_W // 2 - t2.get_width() // 2, WINDOW_H // 2 + 10))
         screen.blit(t3, (WINDOW_W // 2 - t3.get_width() // 2, WINDOW_H // 2 + 70))
 
+def draw_feedback():
+    """متن Correct!/Wrong! رو وسط صفحه نشون می‌ده."""
+    global feedback_timer
+    if feedback_timer <= 0:
+        return
+    txt = font_feed.render(feedback_text, True, feedback_color)
+    # سایه
+    sh = font_feed.render(feedback_text, True, (0, 0, 0))
+    x = WINDOW_W // 2 - txt.get_width() // 2
+    y = WINDOW_H // 2 - txt.get_height() // 2
+    screen.blit(sh, (x + 3, y + 3))
+    screen.blit(txt, (x, y))
+
 def draw_hud():
-    # ---- دکمه Pause گوشه بالا چپ ----
+    # Pause button
     pygame.draw.rect(screen, BLACK, (20, 15, 40, 40))
     pygame.draw.rect(screen, PAUSE_BAR, (30, 25, 5, 20))
     pygame.draw.rect(screen, PAUSE_BAR, (45, 25, 5, 20))
 
-    # ---- TIME ----
+    # TIME
     pygame.draw.rect(screen, HUD_BG, (510, 10, 170, 50))
     txt = font_hud.render(f"TIME    0:{time_left:02d}", True, WHITE)
     screen.blit(txt, (525, 25))
 
-    # ---- SCORE ----
+    # SCORE
     pygame.draw.rect(screen, HUD_BG, (690, 10, 220, 50))
     txt = font_hud.render(f"SCORE    {score}", True, WHITE)
     screen.blit(txt, (705, 25))
 
-    # ---- Meter (5 نقطه) + Multiplier ----
+    # Meter + Multiplier
     pygame.draw.rect(screen, HUD_BG, (920, 10, 200, 50))
     for i in range(5):
         dx = 945 + i * 22
@@ -314,7 +335,7 @@ def draw_hud():
     txt = font_hud.render(f"x{multiplier}", True, WHITE)
     screen.blit(txt, (1070, 25))
 
-    # ---- نوار POINTING / MOVING پایین ----
+    # POINTING / MOVING
     px1, py1, px2, py2 = 360, 610, 560, 670
     mx1, my1, mx2, my2 = 560, 610, 760, 670
 
@@ -345,20 +366,16 @@ def move_leaves():
     for lx, ly in leaves:
         if moving_dir == ">>>>>":
             lx += step
-            if lx > WINDOW_W + 20:
-                lx = -LEAF_W - 20
+            if lx > WINDOW_W + 20: lx = -LEAF_W - 20
         elif moving_dir == "<<<<<":
             lx -= step
-            if lx < -LEAF_W - 20:
-                lx = WINDOW_W + 20
+            if lx < -LEAF_W - 20: lx = WINDOW_W + 20
         elif moving_dir == "^^^^^":
             ly -= step
-            if ly < GAME_TOP - 20:
-                ly = GAME_BOTTOM + 20
+            if ly < GAME_TOP - 20: ly = GAME_BOTTOM + 20
         elif moving_dir == "vvvvv":
             ly += step
-            if ly > GAME_BOTTOM + 20:
-                ly = GAME_TOP - 20
+            if ly > GAME_BOTTOM + 20: ly = GAME_TOP - 20
         new_leaves.append([lx, ly])
     leaves = new_leaves
 
@@ -385,6 +402,8 @@ def penalize():
 # ====================================================================
 def check(player_dir):
     global mode, pointing_dir, moving_dir
+    global feedback_text, feedback_color, feedback_timer
+
     if game_over or paused:
         return
 
@@ -395,8 +414,16 @@ def check(player_dir):
 
     if correct:
         add_score()
+        feedback_text = "Correct!"
+        feedback_color = CORRECT_GREEN
+        feedback_timer = 500  # میلی‌ثانیه
+        play_correct()
     else:
         penalize()
+        feedback_text = "Wrong!"
+        feedback_color = WRONG_RED
+        feedback_timer = 500
+        play_wrong()
 
     # سؤال جدید
     mode = random.choice(["pointing", "moving"])
@@ -405,11 +432,12 @@ def check(player_dir):
     spawn_leaves()
 
 # ====================================================================
-#  ریست بازی
+#  ریست
 # ====================================================================
 def restart_game():
     global mode, pointing_dir, moving_dir
     global score, time_left, multiplier, meter, game_over, paused
+    global feedback_timer
 
     mode = random.choice(["pointing", "moving"])
     pointing_dir = random.choice(DIRS)
@@ -421,6 +449,7 @@ def restart_game():
     meter = 0
     game_over = False
     paused = False
+    feedback_timer = 0
 
     spawn_leaves()
 
@@ -428,12 +457,24 @@ def restart_game():
 #  حلقه‌ی اصلی
 # ====================================================================
 TIMER_EVENT = pygame.USEREVENT + 1
+SFX2_CORRECT = pygame.USEREVENT + 5
+SFX2_WRONG   = pygame.USEREVENT + 6
+
 pygame.time.set_timer(TIMER_EVENT, 1000)
 
 spawn_leaves()
 running = True
+last_frame_ms = pygame.time.get_ticks()
 
 while running:
+    now_ms = pygame.time.get_ticks()
+    dt_ms = now_ms - last_frame_ms
+    last_frame_ms = now_ms
+
+    # کم کردن تایمر بازخورد
+    if feedback_timer > 0:
+        feedback_timer -= dt_ms
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -446,15 +487,34 @@ while running:
                     game_over = True
                     score += 250 * multiplier
 
+        elif event.type == SFX2_CORRECT:
+            if SFX_CORRECT_2: SFX_CORRECT_2.play()
+
+        elif event.type == SFX2_WRONG:
+            if SFX_WRONG_2: SFX_WRONG_2.play()
+
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r and game_over:
-                restart_game()
-            elif event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
+            # Pause (فقط با Space)
+            if event.key == pygame.K_SPACE:
                 if not game_over:
                     paused = not paused
-                elif event.key == pygame.K_ESCAPE:
+                continue
+
+            # Escape هم برای Pause هم برای بستن
+            if event.key == pygame.K_ESCAPE:
+                if game_over:
                     running = False
-            elif event.key in (pygame.K_UP, pygame.K_w):
+                else:
+                    paused = not paused
+                continue
+
+            # Restart
+            if event.key == pygame.K_r and game_over:
+                restart_game()
+                continue
+
+            # حرکت
+            if event.key in (pygame.K_UP, pygame.K_w):
                 check("^^^^^")
             elif event.key in (pygame.K_DOWN, pygame.K_s):
                 check("vvvvv")
