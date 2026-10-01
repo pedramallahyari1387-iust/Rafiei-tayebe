@@ -1,6 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v2 — with SFX + Feedback)
+EBB AND FLOW — PYTHON RECREATION (v3 — Fixed Directions + Mouse Pause)
+====================================================================
+تغییرات نسخه ۳:
+  • جهت برگ نارنجی = جهت حرکت (moving_dir) — مطابق قوانین Lumosity
+  • جهت برگ سبز  = جهت اشاره (pointing_dir) — مطابق قوانین Lumosity
+  • دکمه Pause با موس هم کار می‌کند (کلیک روی دکمه)
+  • خطاهای جهتی برطرف شد
 ====================================================================
 """
 
@@ -8,7 +14,6 @@ import pygame
 import random
 import math
 import os
-import struct
 import array
 
 # ====================================================================
@@ -59,6 +64,9 @@ BG_FALLBACK = (0x0A, 0x1A, 0x2E)
 
 LEAF_W, LEAF_H = 55, 100
 
+# دکمه Pause
+PAUSE_RECT = pygame.Rect(20, 15, 40, 40)
+
 # ====================================================================
 #  پس‌زمینه
 # ====================================================================
@@ -98,10 +106,9 @@ def load_background():
 bg_surface = load_background()
 
 # ====================================================================
-#  ساخت صدای مصنوعی (بدون فایل خارجی)
+#  صدای مصنوعی
 # ====================================================================
 def make_tone(freq, duration_ms, volume=0.35, wave="sine"):
-    """یه صدا با فرکانس داده‌شده تولید می‌کنه (بدون فایل)."""
     if not AUDIO_OK:
         return None
     sample_rate = 44100
@@ -115,33 +122,20 @@ def make_tone(freq, duration_ms, volume=0.35, wave="sine"):
             v = 1.0 if math.sin(2 * math.pi * freq * t) >= 0 else -1.0
         else:
             v = math.sin(2 * math.pi * freq * t)
-        # fade out در ۳۰٪ آخر
         fade_start = int(n_samples * 0.7)
         if i > fade_start:
             v *= 1.0 - (i - fade_start) / (n_samples - fade_start)
         buf.append(int(v * volume * 32767))
     try:
-        snd = pygame.mixer.Sound(buffer=buf.tobytes())
-        return snd
+        return pygame.mixer.Sound(buffer=buf.tobytes())
     except Exception as e:
         print(f"[Audio] tone {freq}Hz failed: {e}")
         return None
 
-# دو صدای اصلی: درست (دو نت بالا) / غلط (دو نت پایین)
-SFX_CORRECT_1 = make_tone(880, 80, 0.30)   # A5
-SFX_CORRECT_2 = make_tone(1320, 140, 0.28) # E6
-SFX_WRONG_1   = make_tone(220, 120, 0.35)  # A3
-SFX_WRONG_2   = make_tone(160, 180, 0.32)  # E3
-
-def play_correct():
-    if SFX_CORRECT_1: SFX_CORRECT_1.play()
-    if SFX_CORRECT_2:
-        pygame.time.set_timer(pygame.USEREVENT + 5, 90, loops=1)
-
-def play_wrong():
-    if SFX_WRONG_1: SFX_WRONG_1.play()
-    if SFX_WRONG_2:
-        pygame.time.set_timer(pygame.USEREVENT + 6, 130, loops=1)
+SFX_CORRECT_1 = make_tone(880, 80, 0.30)
+SFX_CORRECT_2 = make_tone(1320, 140, 0.28)
+SFX_WRONG_1   = make_tone(220, 120, 0.35)
+SFX_WRONG_2   = make_tone(160, 180, 0.32)
 
 # ====================================================================
 #  فونت‌ها
@@ -179,12 +173,15 @@ paused     = False
 NUM_LEAVES = 9
 leaves     = []
 
-# بازخورد (Correct / Wrong)
 feedback_text  = ""
 feedback_color = WHITE
-feedback_timer = 0   # میلی‌ثانیه — با گذشت زمان کم می‌شود
+feedback_timer = 0
 
+# ====================================================================
+#  حرکت: هر برگ با سرعت و فاز خودش (شبیه بازی اصلی)
+# ====================================================================
 def spawn_leaves():
+    """همهٔ برگ‌ها با یه جهت حرکت مشترک، ولی در مکان‌های تصادفی"""
     global leaves
     leaves = []
     for _ in range(NUM_LEAVES):
@@ -258,14 +255,18 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
+    # ------- قانون Lumosity -------
+    # سبز → برگ باید در جهت «اشاره» رسم شود
+    # نارنجی → برگ باید در جهت «حرکت» رسم شود
     if mode == "pointing":
         body, light = LEAF_GREEN, LEAF_GREEN_LIGHT
-        direction = pointing_dir
+        draw_dir = pointing_dir          # ← جهت اشاره
     else:
         body, light = LEAF_ORANGE, LEAF_ORANGE_LIGHT
-        direction = moving_dir
+        draw_dir = moving_dir            # ← جهت حرکت
 
-    surf = get_leaf(body, light, direction)
+    # رسم برگ‌ها
+    surf = get_leaf(body, light, draw_dir)
     sw, sh = surf.get_size()
     off_x = (sw - LEAF_W) // 2
     off_y = (sh - LEAF_H) // 2
@@ -282,7 +283,7 @@ def draw_scene():
         txt = font_big.render("PAUSED", True, WHITE)
         screen.blit(txt, (WINDOW_W // 2 - txt.get_width() // 2,
                           WINDOW_H // 2 - txt.get_height() // 2))
-        hint = font_hud.render("Press SPACE to resume", True, (200,200,200))
+        hint = font_hud.render("Press SPACE to resume or click pause button", True, (200, 200, 200))
         screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
                            WINDOW_H // 2 + 50))
 
@@ -298,12 +299,10 @@ def draw_scene():
         screen.blit(t3, (WINDOW_W // 2 - t3.get_width() // 2, WINDOW_H // 2 + 70))
 
 def draw_feedback():
-    """متن Correct!/Wrong! رو وسط صفحه نشون می‌ده."""
     global feedback_timer
     if feedback_timer <= 0:
         return
     txt = font_feed.render(feedback_text, True, feedback_color)
-    # سایه
     sh = font_feed.render(feedback_text, True, (0, 0, 0))
     x = WINDOW_W // 2 - txt.get_width() // 2
     y = WINDOW_H // 2 - txt.get_height() // 2
@@ -311,22 +310,26 @@ def draw_feedback():
     screen.blit(txt, (x, y))
 
 def draw_hud():
-    # Pause button
-    pygame.draw.rect(screen, BLACK, (20, 15, 40, 40))
+    # ---- دکمه Pause ----
+    # اگه موس روشه، رنگ روشن‌تر
+    mouse_pos = pygame.mouse.get_pos()
+    hovered = PAUSE_RECT.collidepoint(mouse_pos)
+    btn_bg = (0x22, 0x22, 0x22) if hovered else BLACK
+    pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
     pygame.draw.rect(screen, PAUSE_BAR, (30, 25, 5, 20))
     pygame.draw.rect(screen, PAUSE_BAR, (45, 25, 5, 20))
 
-    # TIME
+    # ---- TIME ----
     pygame.draw.rect(screen, HUD_BG, (510, 10, 170, 50))
     txt = font_hud.render(f"TIME    0:{time_left:02d}", True, WHITE)
     screen.blit(txt, (525, 25))
 
-    # SCORE
+    # ---- SCORE ----
     pygame.draw.rect(screen, HUD_BG, (690, 10, 220, 50))
     txt = font_hud.render(f"SCORE    {score}", True, WHITE)
     screen.blit(txt, (705, 25))
 
-    # Meter + Multiplier
+    # ---- Meter ----
     pygame.draw.rect(screen, HUD_BG, (920, 10, 200, 50))
     for i in range(5):
         dx = 945 + i * 22
@@ -335,7 +338,7 @@ def draw_hud():
     txt = font_hud.render(f"x{multiplier}", True, WHITE)
     screen.blit(txt, (1070, 25))
 
-    # POINTING / MOVING
+    # ---- POINTING / MOVING ----
     px1, py1, px2, py2 = 360, 610, 560, 670
     mx1, my1, mx2, my2 = 560, 610, 760, 670
 
@@ -380,7 +383,7 @@ def move_leaves():
     leaves = new_leaves
 
 # ====================================================================
-#  امتیازدهی
+#  امتیاز
 # ====================================================================
 def add_score():
     global score, multiplier, meter
@@ -416,14 +419,16 @@ def check(player_dir):
         add_score()
         feedback_text = "Correct!"
         feedback_color = CORRECT_GREEN
-        feedback_timer = 500  # میلی‌ثانیه
-        play_correct()
+        feedback_timer = 500
+        if SFX_CORRECT_1: SFX_CORRECT_1.play()
+        pygame.time.set_timer(pygame.USEREVENT + 5, 90, loops=1)
     else:
         penalize()
         feedback_text = "Wrong!"
         feedback_color = WRONG_RED
         feedback_timer = 500
-        play_wrong()
+        if SFX_WRONG_1: SFX_WRONG_1.play()
+        pygame.time.set_timer(pygame.USEREVENT + 6, 130, loops=1)
 
     # سؤال جدید
     mode = random.choice(["pointing", "moving"])
@@ -454,7 +459,7 @@ def restart_game():
     spawn_leaves()
 
 # ====================================================================
-#  حلقه‌ی اصلی
+#  حلقهٔ اصلی
 # ====================================================================
 TIMER_EVENT = pygame.USEREVENT + 1
 SFX2_CORRECT = pygame.USEREVENT + 5
@@ -471,7 +476,6 @@ while running:
     dt_ms = now_ms - last_frame_ms
     last_frame_ms = now_ms
 
-    # کم کردن تایمر بازخورد
     if feedback_timer > 0:
         feedback_timer -= dt_ms
 
@@ -493,14 +497,18 @@ while running:
         elif event.type == SFX2_WRONG:
             if SFX_WRONG_2: SFX_WRONG_2.play()
 
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # کلیک روی دکمه Pause
+            if PAUSE_RECT.collidepoint(event.pos):
+                if not game_over:
+                    paused = not paused
+
         elif event.type == pygame.KEYDOWN:
-            # Pause (فقط با Space)
             if event.key == pygame.K_SPACE:
                 if not game_over:
                     paused = not paused
                 continue
 
-            # Escape هم برای Pause هم برای بستن
             if event.key == pygame.K_ESCAPE:
                 if game_over:
                     running = False
@@ -508,12 +516,10 @@ while running:
                     paused = not paused
                 continue
 
-            # Restart
             if event.key == pygame.K_r and game_over:
                 restart_game()
                 continue
 
-            # حرکت
             if event.key in (pygame.K_UP, pygame.K_w):
                 check("^^^^^")
             elif event.key in (pygame.K_DOWN, pygame.K_s):
