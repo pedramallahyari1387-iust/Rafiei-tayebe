@@ -1,13 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v10 — Full Pause Menu)
+EBB AND FLOW — PYTHON RECREATION (v11 — Real Waterfall Music)
 ====================================================================
-تغییرات نسخه ۱۰:
-  • منوی Pause: آیتم‌های Mute Sound / Mute Music با toggle و تغییر متن
-  • How To Play: پنل با دکمهٔ Back برای برگشت به منو
-  • حذف آیکن‌های منو (فقط متن)
-  • موسیقی پس‌زمینه: صدای آبشار
-  • پخش برگ‌ها بدون همپوشانی (grid + jitter)
+تغییرات نسخه ۱۱:
+  • موسیقی پس‌زمینه از فایل MUSIC.mp3 لود می‌شود
+  • دکمهٔ Mute Music واقعاً موسیقی را قطع/وصل می‌کند
+  • دکمهٔ Mute Sound واقعاً صداهای SFX را قطع/وصل می‌کند
+  • سایر ویژگی‌های نسخه ۱۰ حفظ شده
 ====================================================================
 """
 
@@ -23,7 +22,7 @@ import array
 pygame.init()
 pygame.font.init()
 try:
-    pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=512)
+    pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
     AUDIO_OK = True
 except Exception as e:
     print(f"[Audio] mixer init failed: {e}")
@@ -61,7 +60,6 @@ BTN_TEXT_INACTIVE = (51, 51, 51)
 CORRECT_GREEN = (76, 224, 76)
 WRONG_ORANGE  = (245, 130, 32)
 
-MENU_BG         = (15, 30, 50)
 MENU_ITEM_BG    = (25, 40, 60)
 MENU_ITEM_HOVER = (45, 180, 235)
 MENU_TEXT       = (100, 200, 245)
@@ -69,9 +67,6 @@ MENU_TEXT_HOVER = (255, 255, 255)
 
 BG_FALLBACK = (10, 26, 46)
 
-# ====================================================================
-#  اندازه برگ — از leaf1Sprite
-# ====================================================================
 LEAF_W, LEAF_H = 60, 110
 
 # ====================================================================
@@ -95,6 +90,7 @@ BG_CANDIDATES = [
 
 LEAF_GREEN_IMG  = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_green.png"
 LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
+MUSIC_PATH      = r"C:\Users\ASUS\Downloads\MUSIC.mp3"
 
 # ====================================================================
 #  بارگذاری پس‌زمینه
@@ -165,7 +161,7 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-#  صدای مصنوعی — SFX
+#  صداهای SFX (مصنوعی)
 # ====================================================================
 def make_tone(freq, duration_ms, volume=0.30):
     if not AUDIO_OK:
@@ -186,75 +182,54 @@ def make_tone(freq, duration_ms, volume=0.30):
         print(f"[Audio] tone failed: {e}")
         return None
 
-# ====================================================================
-#  موسیقی پس‌زمینه — صدای آبشار (نویز صورتی + فرکانس‌های آب)
-# ====================================================================
-def make_waterfall_loop(duration_sec=4.0, volume=0.18):
-    """
-    صدای آبشار:
-      - نویز سفید فیلترشده (رودخانه)
-      - سینوس‌های فرکانس پایین (جریان آب)
-      - ترمیم‌شده در ابتدا و انتها برای لوپ یکنواخت
-    """
-    if not AUDIO_OK:
-        return None
-    sample_rate = 22050       # نصف — برای فایل کوچک‌تر
-    n = int(sample_rate * duration_sec)
-    buf = array.array("h")
-
-    # نویز با میانگین متحرک (نویز صورتی تقریبی)
-    random.seed(42)
-    prev1, prev2, prev3 = 0.0, 0.0, 0.0
-    for i in range(n):
-        t = i / sample_rate
-        # نویز سفید
-        w = random.uniform(-1, 1)
-        # فیلتر پایین‌گذر ساده
-        prev1 = prev1 * 0.95 + w * 0.05
-        prev2 = prev2 * 0.85 + w * 0.15
-        prev3 = prev3 * 0.70 + w * 0.30
-        pink = prev1 + prev2 + prev3
-        # صدای آب: چند سینوس فرکانس پایین
-        hum = (math.sin(2 * math.pi * 60 * t) * 0.15
-               + math.sin(2 * math.pi * 110 * t) * 0.10
-               + math.sin(2 * math.pi * 180 * t) * 0.05)
-        # ترکیب
-        v = pink * 0.7 + hum
-
-        # لوپ نرم: cross-fade انتهای فایل به ابتدای آن
-        fade_len = int(sample_rate * 0.3)
-        if i < fade_len:
-            v *= i / fade_len
-        elif i > n - fade_len:
-            v *= (n - i) / fade_len
-
-        buf.append(int(max(-1.0, min(1.0, v)) * volume * 32767))
-
-    try:
-        snd = pygame.mixer.Sound(buffer=buf.tobytes())
-        return snd
-    except Exception as e:
-        print(f"[Audio] waterfall failed: {e}")
-        return None
-
 SFX_CORRECT_1 = make_tone(880, 80, 0.30)
 SFX_CORRECT_2 = make_tone(1320, 140, 0.28)
 SFX_WRONG_1   = make_tone(220, 120, 0.35)
 SFX_WRONG_2   = make_tone(160, 180, 0.32)
 
-# موسیقی پس‌زمینه (آبشار)
-MUSIC_WATERFALL = make_waterfall_loop(duration_sec=5.0, volume=0.18)
+# ====================================================================
+#  موسیقی پس‌زمینه — از فایل MUSIC.mp3
+# ====================================================================
+music_loaded = False
+if AUDIO_OK and os.path.exists(MUSIC_PATH):
+    try:
+        pygame.mixer.music.load(MUSIC_PATH)
+        pygame.mixer.music.set_volume(0.4)
+        music_loaded = True
+        print(f"[Music] loaded OK from {MUSIC_PATH}")
+    except Exception as e:
+        print(f"[Music] load failed: {e}")
+else:
+    if not os.path.exists(MUSIC_PATH):
+        print(f"[Music] file not found: {MUSIC_PATH}")
 
-music_channel = None
 def start_music():
-    global music_channel
-    if not AUDIO_OK or MUSIC_WATERFALL is None:
-        return
-    music_channel = MUSIC_WATERFALL.play(loops=-1)
+    if music_loaded:
+        try:
+            pygame.mixer.music.play(loops=-1)
+        except Exception as e:
+            print(f"[Music] play failed: {e}")
 
 def stop_music():
-    if music_channel is not None:
-        music_channel.stop()
+    if music_loaded:
+        try:
+            pygame.mixer.music.stop()
+        except Exception:
+            pass
+
+def pause_music():
+    if music_loaded:
+        try:
+            pygame.mixer.music.pause()
+        except Exception:
+            pass
+
+def resume_music():
+    if music_loaded:
+        try:
+            pygame.mixer.music.unpause()
+        except Exception:
+            pass
 
 # ====================================================================
 #  فونت‌ها
@@ -301,13 +276,9 @@ feedback_type  = None
 feedback_timer = 0
 
 # ====================================================================
-#  پخش برگ‌ها — موقعیت‌های تصادفی بدون همپوشانی (Grid + Jitter)
+#  پخش برگ‌ها — Grid + Jitter (بدون همپوشانی)
 # ====================================================================
 def spawn_leaves():
-    """
-    برگ‌ها را در یک شبکهٔ 3×3 (یا نزدیک به آن) با jitter کوچک پخش می‌کند
-    تا هیچ‌کدام روی دیگری نیفتند.
-    """
     global leaves
     leaves = []
     cols = 3
@@ -318,10 +289,8 @@ def spawn_leaves():
     random.shuffle(cells)
 
     for c, r in cells[:NUM_LEAVES]:
-        # مرکز سلول
         cx = 30 + c * cell_w + cell_w / 2
         cy = GAME_TOP + 20 + r * cell_h + cell_h / 2
-        # jitter کوچک داخل سلول
         max_jx = max(0, cell_w / 2 - LEAF_W / 2 - 4)
         max_jy = max(0, cell_h / 2 - LEAF_H / 2 - 4)
         jx = random.uniform(-max_jx, max_jx)
@@ -399,7 +368,6 @@ def update_menu_rects():
         y = MENU_Y_START + i * (MENU_H_ITEM + MENU_GAP)
         item.rect = pygame.Rect(MENU_X, y, MENU_W, MENU_H_ITEM)
 
-# کادر Back در How To Play
 BACK_RECT = pygame.Rect(WINDOW_W // 2 - 80, WINDOW_H - 90, 160, 44)
 
 # ====================================================================
@@ -426,7 +394,6 @@ def draw_pause_menu():
     ov.fill((0, 0, 0, 180))
     screen.blit(ov, (0, 0))
 
-    # نوار «Paused» بالا چپ
     paused_rect = pygame.Rect(0, 0, 140, 44)
     pygame.draw.rect(screen, (230, 230, 230), paused_rect)
     pygame.draw.rect(screen, (40, 40, 40), (14, 12, 5, 20))
@@ -473,7 +440,6 @@ def draw_howto_panel():
         t = font_small.render(line, True, WHITE)
         screen.blit(t, (ht_rect.x + 40, ht_rect.y + 80 + i * 28))
 
-    # دکمهٔ Back
     mouse_pos = pygame.mouse.get_pos()
     hovered = BACK_RECT.collidepoint(mouse_pos)
     bg = MENU_ITEM_HOVER if hovered else MENU_ITEM_BG
@@ -568,7 +534,6 @@ def draw_hud():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
 
-    # Meter — ۴ نقطه
     pygame.draw.rect(screen, HUD_BG, METER_RECT)
     dot_r = 7
     dot_gap = 18
@@ -745,13 +710,11 @@ while running:
                 SFX_WRONG_2.play()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # کلیک روی دکمه Pause
             if PAUSE_RECT.collidepoint(event.pos):
                 if not game_over:
                     paused = not paused
                     show_howto = False
                     continue
-            # کلیک داخل منو
             if paused:
                 if show_howto:
                     if BACK_RECT.collidepoint(event.pos):
