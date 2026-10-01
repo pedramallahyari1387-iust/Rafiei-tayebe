@@ -1,13 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v6 — Polished HUD)
+EBB AND FLOW — PYTHON RECREATION (v7 — با تصاویر برگ واقعی)
 ====================================================================
-اصلاحات نسخه ۶:
-  • دکمه Pause: خطوط دقیقاً در مرکز کادر
-  • xN چسبیده به لبه راست کادر Meter
-  • SCORE راست‌چین دقیق
-  • TIME چپ‌چین با عدد راست‌چین
-  • شکل برگ آبشاری/قطره‌ای
+• برگ سبز از ebb_and_flow_leaf_green.png
+• برگ نارنجی از ebb_and_flow_leaf_yellow.png
+• پس‌زمینه از Texture237.png
+• ظرافت‌های HUD (Pause وسط کادر، xN چسبیده به راست)
+• قانون Lumosity: سبز=اشاره، نارنجی=حرکت (با نوک مستقل)
 ====================================================================
 """
 
@@ -66,7 +65,7 @@ BG_FALLBACK = (10, 26, 46)
 LEAF_W, LEAF_H = 70, 100
 
 # ====================================================================
-#  کادرها (تعریف‌شده یک‌بار برای استفاده در رسم و کلیک)
+#  کادرها
 # ====================================================================
 PAUSE_RECT  = pygame.Rect(10, 10, 50, 50)
 TIME_RECT   = pygame.Rect(510, 0, 170, 70)
@@ -76,13 +75,19 @@ POINT_RECT  = pygame.Rect(360, 610, 200, 70)
 MOVE_RECT   = pygame.Rect(560, 610, 200, 70)
 
 # ====================================================================
-#  پس‌زمینه
+#  مسیرها
 # ====================================================================
 BG_CANDIDATES = [
     r"C:\Users\ASUS\Downloads\Texture237.png",
     r"C:\Users\ASUS\Downloads\TexturePNG\Texture237.png",
 ]
 
+LEAF_GREEN_IMG  = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_green.png"
+LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
+
+# ====================================================================
+#  بارگذاری پس‌زمینه
+# ====================================================================
 def find_bg():
     for p in BG_CANDIDATES:
         if os.path.exists(p):
@@ -112,6 +117,51 @@ def load_background():
         return None
 
 bg_surface = load_background()
+
+# ====================================================================
+#  بارگذاری تصاویر برگ
+# ====================================================================
+def load_leaf_image(path):
+    """تصویر برگ را با حفظ نسبت ابعاد در اندازه LEAF_W × LEAF_H بارگذاری می‌کند."""
+    if not os.path.exists(path):
+        print(f"[Leaf] not found: {path}")
+        return None
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        # مقیاس‌دهی با حفظ نسبت
+        orig_w, orig_h = img.get_size()
+        scale = min(LEAF_W / orig_w, LEAF_H / orig_h)
+        new_w, new_h = int(orig_w * scale), int(orig_h * scale)
+        img = pygame.transform.smoothscale(img, (new_w, new_h))
+        print(f"[Leaf] loaded {path}  size={new_w}×{new_h}")
+        return img
+    except Exception as e:
+        print(f"[Leaf] failed {path}: {e}")
+        return None
+
+leaf_green_img  = load_leaf_image(LEAF_GREEN_IMG)
+leaf_orange_img = load_leaf_image(LEAF_ORANGE_IMG)
+
+# کش برای تصاویر چرخیده‌شده
+_leaf_rot_cache = {}
+
+def get_rotated_leaf(base_img, direction):
+    """تصویر برگ را به جهت مورد نظر می‌چرخاند."""
+    if base_img is None:
+        return None
+    key = (id(base_img), direction)
+    if key in _leaf_rot_cache:
+        return _leaf_rot_cache[key]
+
+    # زاویه چرخش: pygame.transform.rotate پادساعتگرد می‌چرخاند
+    if direction == ">>>>>":   angle = 0
+    elif direction == "vvvvv": angle = -90
+    elif direction == "<<<<<": angle = 180
+    else:                       angle = 90   # ^^^^^
+
+    rotated = pygame.transform.rotate(base_img, angle)
+    _leaf_rot_cache[key] = rotated
+    return rotated
 
 # ====================================================================
 #  صدای مصنوعی
@@ -190,9 +240,9 @@ def spawn_leaves():
         leaves.append([x, y])
 
 # ====================================================================
-#  ساخت سطح برگ
+#  رسم برگ (fallback اگر تصویر لود نشده باشه)
 # ====================================================================
-def make_leaf_surface(body_color, light_color, direction):
+def make_leaf_surface_fallback(body_color, light_color, direction):
     pad = 50
     w, h = LEAF_W + pad * 2, LEAF_H + pad * 2
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -227,7 +277,6 @@ def make_leaf_surface(body_color, light_color, direction):
     pygame.draw.polygon(surf, body_color, rotated)
     pygame.draw.polygon(surf, LEAF_OUTLINE, rotated, 6)
 
-    # دُم
     stem_len, stem_w = 22, 12
     if direction == ">>>>>":
         stem = pygame.Rect(cx - rx - stem_len, cy - stem_w // 2, stem_len, stem_w)
@@ -240,22 +289,13 @@ def make_leaf_surface(body_color, light_color, direction):
     pygame.draw.rect(surf, body_color, stem)
     pygame.draw.rect(surf, LEAF_OUTLINE, stem, 5)
 
-    # خط روشن وسط
     if direction in (">>>>>", "<<<<<"):
         pygame.draw.line(surf, light_color,
                          (cx - rx * 0.55, cy), (cx + rx * 0.55, cy), 5)
     else:
         pygame.draw.line(surf, light_color,
                          (cx, cy - ry * 0.55), (cx, cy + ry * 0.55), 5)
-
     return surf
-
-_leaf_cache = {}
-def get_leaf(body_color, light_color, direction):
-    key = (body_color, light_color, direction)
-    if key not in _leaf_cache:
-        _leaf_cache[key] = make_leaf_surface(body_color, light_color, direction)
-    return _leaf_cache[key]
 
 # ====================================================================
 #  رسم صحنه
@@ -266,19 +306,33 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
+    # انتخاب تصویر و جهت
     if mode == "pointing":
-        body, light = LEAF_GREEN, LEAF_GREEN_LIGHT
+        base_img = leaf_green_img
+        fallback_colors = (LEAF_GREEN, LEAF_GREEN_LIGHT)
         draw_dir = pointing_dir
     else:
-        body, light = LEAF_ORANGE, LEAF_ORANGE_LIGHT
+        base_img = leaf_orange_img
+        fallback_colors = (LEAF_ORANGE, LEAF_ORANGE_LIGHT)
         draw_dir = orange_visual_dir
 
-    surf = get_leaf(body, light, draw_dir)
-    sw, sh = surf.get_size()
-    off_x = (sw - LEAF_W) // 2
-    off_y = (sh - LEAF_H) // 2
+    # رسم برگ‌ها
+    rotated_img = get_rotated_leaf(base_img, draw_dir) if base_img else None
+
     for lx, ly in leaves:
-        screen.blit(surf, (lx - off_x, ly - off_y))
+        if rotated_img:
+            rect = rotated_img.get_rect(center=(lx + LEAF_W // 2,
+                                                ly + LEAF_H // 2))
+            screen.blit(rotated_img, rect)
+        else:
+            # fallback
+            surf = make_leaf_surface_fallback(fallback_colors[0],
+                                              fallback_colors[1],
+                                              draw_dir)
+            sw, sh = surf.get_size()
+            off_x = (sw - LEAF_W) // 2
+            off_y = (sh - LEAF_H) // 2
+            screen.blit(surf, (lx - off_x, ly - off_y))
 
     draw_hud()
     draw_feedback()
@@ -290,7 +344,7 @@ def draw_scene():
         txt = font_big.render("PAUSED", True, WHITE)
         screen.blit(txt, (WINDOW_W // 2 - txt.get_width() // 2,
                           WINDOW_H // 2 - txt.get_height() // 2))
-        hint = font_hud.render("Press SPACE to resume or click pause button", True, (200, 200, 200))
+        hint = font_hud.render("Press SPACE to resume", True, (200, 200, 200))
         screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
                            WINDOW_H // 2 + 50))
 
@@ -317,16 +371,15 @@ def draw_feedback():
     screen.blit(txt, (x, y))
 
 # ====================================================================
-#  HUD — دقیق و متمرکز
+#  HUD
 # ====================================================================
 def draw_hud():
-    # ---------- دکمه Pause ----------
+    # دکمه Pause
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (34, 34, 34) if hovered else BLACK
     pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
 
-    # دو خط Pause در مرکز کادر
     bar_w, bar_h = 6, 26
     gap = 10
     total_w = bar_w * 2 + gap
@@ -336,7 +389,7 @@ def draw_hud():
     pygame.draw.rect(screen, PAUSE_BAR,
                      (start_x + bar_w + gap, start_y, bar_w, bar_h))
 
-    # ---------- TIME ----------
+    # TIME
     pygame.draw.rect(screen, HUD_BG, TIME_RECT)
     lbl = font_hud.render("TIME", True, WHITE)
     val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
@@ -345,7 +398,7 @@ def draw_hud():
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
                       TIME_RECT.centery - val.get_height() // 2))
 
-    # ---------- SCORE (راست‌چین) ----------
+    # SCORE
     pygame.draw.rect(screen, HUD_BG, SCORE_RECT)
     lbl = font_hud.render("SCORE", True, WHITE)
     val = font_hud.render(str(score), True, WHITE)
@@ -353,10 +406,9 @@ def draw_hud():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
 
-    # ---------- Meter + xN ----------
+    # Meter + xN
     pygame.draw.rect(screen, HUD_BG, METER_RECT)
-
-    dot_r   = 8
+    dot_r = 8
     dot_gap = 20
     dots_start_x = METER_RECT.x + 15 + dot_r
     for i in range(5):
@@ -364,13 +416,12 @@ def draw_hud():
         c = DOT_ON if i < meter else DOT_OFF
         pygame.draw.circle(screen, c, (dx, METER_RECT.centery), dot_r)
 
-    # xN چسبیده به لبه راست
     val = font_hud.render(f"x{multiplier}", True, WHITE)
     right_pad = 12
     screen.blit(val, (METER_RECT.right - val.get_width() - right_pad,
                       METER_RECT.centery - val.get_height() // 2))
 
-    # ---------- POINTING / MOVING ----------
+    # POINTING / MOVING
     p_bg = POINTING_ACTIVE if mode == "pointing" else BTN_INACTIVE
     m_bg = MOVING_ACTIVE if mode == "moving" else BTN_INACTIVE
     p_fg = WHITE if mode == "pointing" else BTN_TEXT_INACTIVE
