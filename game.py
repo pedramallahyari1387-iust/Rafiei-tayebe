@@ -1,13 +1,13 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v9 — 800×600 + Pause Menu)
+EBB AND FLOW — PYTHON RECREATION (v10 — Full Pause Menu)
 ====================================================================
-تغییرات نسخه ۹:
-  • ابعاد پنجره: 800 × 600
-  • Meter: ۴ نقطه (نه ۵)
-  • بازخورد بصری: تیک سبز / ضربدر نارنجی (نه متن)
-  • منوی Pause کامل با ۶ گزینه و hover effect
-  • اندازه‌های HUD متناسب با 800×600
+تغییرات نسخه ۱۰:
+  • منوی Pause: آیتم‌های Mute Sound / Mute Music با toggle و تغییر متن
+  • How To Play: پنل با دکمهٔ Back برای برگشت به منو
+  • حذف آیکن‌های منو (فقط متن)
+  • موسیقی پس‌زمینه: صدای آبشار
+  • پخش برگ‌ها بدون همپوشانی (grid + jitter)
 ====================================================================
 """
 
@@ -70,12 +70,12 @@ MENU_TEXT_HOVER = (255, 255, 255)
 BG_FALLBACK = (10, 26, 46)
 
 # ====================================================================
-#  اندازه برگ — از leaf1Sprite (70.955 × 130.4)
+#  اندازه برگ — از leaf1Sprite
 # ====================================================================
 LEAF_W, LEAF_H = 60, 110
 
 # ====================================================================
-#  کادرها (متناسب با 800×600)
+#  کادرها
 # ====================================================================
 PAUSE_RECT  = pygame.Rect(8, 8, 44, 44)
 TIME_RECT   = pygame.Rect(360, 0, 140, 60)
@@ -165,7 +165,7 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-#  صدای مصنوعی
+#  صدای مصنوعی — SFX
 # ====================================================================
 def make_tone(freq, duration_ms, volume=0.30):
     if not AUDIO_OK:
@@ -186,10 +186,75 @@ def make_tone(freq, duration_ms, volume=0.30):
         print(f"[Audio] tone failed: {e}")
         return None
 
+# ====================================================================
+#  موسیقی پس‌زمینه — صدای آبشار (نویز صورتی + فرکانس‌های آب)
+# ====================================================================
+def make_waterfall_loop(duration_sec=4.0, volume=0.18):
+    """
+    صدای آبشار:
+      - نویز سفید فیلترشده (رودخانه)
+      - سینوس‌های فرکانس پایین (جریان آب)
+      - ترمیم‌شده در ابتدا و انتها برای لوپ یکنواخت
+    """
+    if not AUDIO_OK:
+        return None
+    sample_rate = 22050       # نصف — برای فایل کوچک‌تر
+    n = int(sample_rate * duration_sec)
+    buf = array.array("h")
+
+    # نویز با میانگین متحرک (نویز صورتی تقریبی)
+    random.seed(42)
+    prev1, prev2, prev3 = 0.0, 0.0, 0.0
+    for i in range(n):
+        t = i / sample_rate
+        # نویز سفید
+        w = random.uniform(-1, 1)
+        # فیلتر پایین‌گذر ساده
+        prev1 = prev1 * 0.95 + w * 0.05
+        prev2 = prev2 * 0.85 + w * 0.15
+        prev3 = prev3 * 0.70 + w * 0.30
+        pink = prev1 + prev2 + prev3
+        # صدای آب: چند سینوس فرکانس پایین
+        hum = (math.sin(2 * math.pi * 60 * t) * 0.15
+               + math.sin(2 * math.pi * 110 * t) * 0.10
+               + math.sin(2 * math.pi * 180 * t) * 0.05)
+        # ترکیب
+        v = pink * 0.7 + hum
+
+        # لوپ نرم: cross-fade انتهای فایل به ابتدای آن
+        fade_len = int(sample_rate * 0.3)
+        if i < fade_len:
+            v *= i / fade_len
+        elif i > n - fade_len:
+            v *= (n - i) / fade_len
+
+        buf.append(int(max(-1.0, min(1.0, v)) * volume * 32767))
+
+    try:
+        snd = pygame.mixer.Sound(buffer=buf.tobytes())
+        return snd
+    except Exception as e:
+        print(f"[Audio] waterfall failed: {e}")
+        return None
+
 SFX_CORRECT_1 = make_tone(880, 80, 0.30)
 SFX_CORRECT_2 = make_tone(1320, 140, 0.28)
 SFX_WRONG_1   = make_tone(220, 120, 0.35)
 SFX_WRONG_2   = make_tone(160, 180, 0.32)
+
+# موسیقی پس‌زمینه (آبشار)
+MUSIC_WATERFALL = make_waterfall_loop(duration_sec=5.0, volume=0.18)
+
+music_channel = None
+def start_music():
+    global music_channel
+    if not AUDIO_OK or MUSIC_WATERFALL is None:
+        return
+    music_channel = MUSIC_WATERFALL.play(loops=-1)
+
+def stop_music():
+    if music_channel is not None:
+        music_channel.stop()
 
 # ====================================================================
 #  فونت‌ها
@@ -206,8 +271,8 @@ font_hud   = make_font(18, True)
 font_btn   = make_font(20, True)
 font_big   = make_font(44, True)
 font_mid   = make_font(28, True)
-font_menu  = make_font(24, True)
-font_small = make_font(16, False)
+font_menu  = make_font(22, True)
+font_small = make_font(15, False)
 
 # ====================================================================
 #  حالت بازی
@@ -225,34 +290,59 @@ multiplier = 1
 meter      = 0
 game_over  = False
 paused     = False
-muted      = False
+sound_muted = False
+music_muted = False
 show_howto = False
 
 NUM_LEAVES = 7
 leaves     = []
 
-# feedback: None | "correct" | "wrong"
 feedback_type  = None
 feedback_timer = 0
 
+# ====================================================================
+#  پخش برگ‌ها — موقعیت‌های تصادفی بدون همپوشانی (Grid + Jitter)
+# ====================================================================
 def spawn_leaves():
+    """
+    برگ‌ها را در یک شبکهٔ 3×3 (یا نزدیک به آن) با jitter کوچک پخش می‌کند
+    تا هیچ‌کدام روی دیگری نیفتند.
+    """
     global leaves
     leaves = []
-    for _ in range(NUM_LEAVES):
-        x = random.randint(30, WINDOW_W - LEAF_W - 30)
-        y = random.randint(GAME_TOP + 30, GAME_BOTTOM - LEAF_H - 30)
+    cols = 3
+    rows = 3
+    cell_w = (WINDOW_W - 60) / cols
+    cell_h = (GAME_BOTTOM - GAME_TOP - 40) / rows
+    cells = [(c, r) for r in range(rows) for c in range(cols)]
+    random.shuffle(cells)
+
+    for c, r in cells[:NUM_LEAVES]:
+        # مرکز سلول
+        cx = 30 + c * cell_w + cell_w / 2
+        cy = GAME_TOP + 20 + r * cell_h + cell_h / 2
+        # jitter کوچک داخل سلول
+        max_jx = max(0, cell_w / 2 - LEAF_W / 2 - 4)
+        max_jy = max(0, cell_h / 2 - LEAF_H / 2 - 4)
+        jx = random.uniform(-max_jx, max_jx)
+        jy = random.uniform(-max_jy, max_jy)
+        x = cx + jx - LEAF_W / 2
+        y = cy + jy - LEAF_H / 2
         leaves.append([x, y])
 
 # ====================================================================
-#  منوی Pause
+#  منو
 # ====================================================================
 class MenuItem:
-    def __init__(self, key, label, action):
+    def __init__(self, key, label_fn, action):
         self.key = key
-        self.label = label
+        self.label_fn = label_fn
         self.action = action
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.hover = False
+
+    def get_label(self):
+        return self.label_fn()
 
 def menu_resume():
     global paused
@@ -263,13 +353,17 @@ def menu_restart():
     restart_game()
     paused = False
 
-def menu_mute_sound():
-    global muted
-    muted = not muted
+def menu_toggle_sound():
+    global sound_muted
+    sound_muted = not sound_muted
 
-def menu_mute_music():
-    global muted
-    muted = not muted
+def menu_toggle_music():
+    global music_muted
+    music_muted = not music_muted
+    if music_muted:
+        stop_music()
+    else:
+        start_music()
 
 def menu_quit():
     global running
@@ -277,64 +371,72 @@ def menu_quit():
 
 def menu_howto():
     global show_howto
-    show_howto = not show_howto
+    show_howto = True
+
+def menu_back_from_howto():
+    global show_howto
+    show_howto = False
 
 menu_items = [
-    MenuItem("resume",     "Resume",     menu_resume),
-    MenuItem("restart",    "Restart",    menu_restart),
-    MenuItem("mute_sound", "Mute Sound", menu_mute_sound),
-    MenuItem("mute_music", "Mute Music", menu_mute_music),
-    MenuItem("quit",       "Quit",       menu_quit),
-    MenuItem("howto",      "How To Play", menu_howto),
+    MenuItem("resume",     lambda: "Resume",                          menu_resume),
+    MenuItem("restart",    lambda: "Restart",                         menu_restart),
+    MenuItem("mute_sound", lambda: "Sound Muted" if sound_muted else "Mute Sound",
+             menu_toggle_sound),
+    MenuItem("mute_music", lambda: "Music Muted" if music_muted else "Mute Music",
+             menu_toggle_music),
+    MenuItem("quit",       lambda: "Quit",                            menu_quit),
+    MenuItem("howto",      lambda: "How To Play",                     menu_howto),
 ]
 
-# ابعاد منو
-MENU_W = 400
-MENU_H_ITEM = 50
+MENU_W = 380
+MENU_H_ITEM = 48
 MENU_GAP = 4
 MENU_X = (WINDOW_W - MENU_W) // 2
-MENU_Y_START = 120
+MENU_Y_START = 130
 
 def update_menu_rects():
     for i, item in enumerate(menu_items):
         y = MENU_Y_START + i * (MENU_H_ITEM + MENU_GAP)
         item.rect = pygame.Rect(MENU_X, y, MENU_W, MENU_H_ITEM)
 
+# کادر Back در How To Play
+BACK_RECT = pygame.Rect(WINDOW_W // 2 - 80, WINDOW_H - 90, 160, 44)
+
 # ====================================================================
-#  رسم تیک و ضربدر
+#  تیک / ضربدر
 # ====================================================================
-def draw_checkmark(cx, cy, size=60, color=(76, 224, 76)):
-    """تیک سبز — دو خط مورب"""
+def draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN):
     pts = [
         (cx - size * 0.4, cy),
         (cx - size * 0.1, cy + size * 0.3),
         (cx + size * 0.4, cy - size * 0.3),
     ]
-    pygame.draw.lines(screen, color, False, pts, 8)
+    pygame.draw.lines(screen, color, False, pts, 10)
 
-def draw_crossmark(cx, cy, size=60, color=(245, 130, 32)):
-    """ضربدر نارنجی — دو خط مورب"""
+def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
     off = size * 0.35
-    pygame.draw.line(screen, color, (cx - off, cy - off), (cx + off, cy + off), 8)
-    pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 8)
+    pygame.draw.line(screen, color, (cx - off, cy - off), (cx + off, cy + off), 10)
+    pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 10)
 
 # ====================================================================
-#  رسم منوی Pause
+#  منو
 # ====================================================================
 def draw_pause_menu():
-    # پس‌زمینه نیمه‌تاریک
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
-    ov.fill((0, 0, 0, 170))
+    ov.fill((0, 0, 0, 180))
     screen.blit(ov, (0, 0))
 
-    # کادر بالا چپ "Paused"
+    # نوار «Paused» بالا چپ
     paused_rect = pygame.Rect(0, 0, 140, 44)
     pygame.draw.rect(screen, (230, 230, 230), paused_rect)
-    # دو خط تیره (آیکن Pause)
     pygame.draw.rect(screen, (40, 40, 40), (14, 12, 5, 20))
     pygame.draw.rect(screen, (40, 40, 40), (24, 12, 5, 20))
     txt = font_menu.render("Paused", True, (40, 40, 40))
     screen.blit(txt, (40, 8))
+
+    if show_howto:
+        draw_howto_panel()
+        return
 
     update_menu_rects()
     mouse_pos = pygame.mouse.get_pos()
@@ -344,73 +446,42 @@ def draw_pause_menu():
         bg = MENU_ITEM_HOVER if item.hover else MENU_ITEM_BG
         fg = MENU_TEXT_HOVER if item.hover else MENU_TEXT
         pygame.draw.rect(screen, bg, item.rect)
-
-        # آیکن ساده بر اساس نوع
-        icon_x = item.rect.x + 30
-        icon_y = item.rect.centery
-        if item.key == "resume":
-            pygame.draw.polygon(screen, fg,
-                                [(icon_x - 6, icon_y - 8),
-                                 (icon_x - 6, icon_y + 8),
-                                 (icon_x + 8, icon_y)])
-        elif item.key == "restart":
-            pygame.draw.circle(screen, fg, (icon_x, icon_y), 8, 3)
-            pygame.draw.polygon(screen, fg,
-                                [(icon_x + 4, icon_y - 10),
-                                 (icon_x + 10, icon_y - 6),
-                                 (icon_x + 4, icon_y - 2)])
-        elif item.key == "mute_sound":
-            pygame.draw.circle(screen, fg, (icon_x, icon_y), 8, 2)
-            pygame.draw.line(screen, fg, (icon_x - 4, icon_y - 4),
-                             (icon_x + 4, icon_y + 4), 2)
-            pygame.draw.line(screen, fg, (icon_x + 4, icon_y - 4),
-                             (icon_x - 4, icon_y + 4), 2)
-        elif item.key == "mute_music":
-            pygame.draw.circle(screen, fg, (icon_x, icon_y), 8, 2)
-            pygame.draw.line(screen, fg, (icon_x + 2, icon_y + 5),
-                             (icon_x + 2, icon_y - 6), 2)
-        elif item.key == "quit":
-            pygame.draw.line(screen, fg, (icon_x - 7, icon_y - 7),
-                             (icon_x + 7, icon_y + 7), 3)
-            pygame.draw.line(screen, fg, (icon_x + 7, icon_y - 7),
-                             (icon_x - 7, icon_y + 7), 3)
-        elif item.key == "howto":
-            pygame.draw.circle(screen, fg, (icon_x, icon_y), 9, 2)
-            txt_q = font_hud.render("?", True, fg)
-            screen.blit(txt_q, (icon_x - txt_q.get_width() // 2,
-                                icon_y - txt_q.get_height() // 2))
-
-        # متن
-        label_txt = font_menu.render(item.label, True, fg)
-        screen.blit(label_txt, (item.rect.x + 70,
+        label_txt = font_menu.render(item.get_label(), True, fg)
+        screen.blit(label_txt, (item.rect.centerx - label_txt.get_width() // 2,
                                 item.rect.centery - label_txt.get_height() // 2))
 
-    # اگه How To Play فعاله، یه پنل توضیح نشون بده
-    if show_howto:
-        ht_rect = pygame.Rect(80, 80, WINDOW_W - 160, WINDOW_H - 160)
-        pygame.draw.rect(screen, (10, 25, 45), ht_rect)
-        pygame.draw.rect(screen, MENU_ITEM_HOVER, ht_rect, 3)
-        title = font_mid.render("How To Play", True, WHITE)
-        screen.blit(title, (ht_rect.centerx - title.get_width() // 2,
-                            ht_rect.y + 20))
-        lines = [
-            "Green leaves  →  press the direction they POINT",
-            "Orange leaves →  press the direction they MOVE",
-            "",
-            "Correct = 50 × multiplier",
-            "Meter fills → multiplier increases",
-            "Wrong = lose meter or multiplier",
-            "",
-            "WASD or arrow keys to answer",
-            "Space to pause",
-        ]
-        for i, line in enumerate(lines):
-            t = font_small.render(line, True, WHITE)
-            screen.blit(t, (ht_rect.x + 30, ht_rect.y + 80 + i * 26))
-        hint = font_small.render("Press How To Play again to close",
-                                 True, (180, 180, 180))
-        screen.blit(hint, (ht_rect.centerx - hint.get_width() // 2,
-                           ht_rect.bottom - 30))
+def draw_howto_panel():
+    ht_rect = pygame.Rect(60, 70, WINDOW_W - 120, WINDOW_H - 170)
+    pygame.draw.rect(screen, (10, 25, 45), ht_rect)
+    pygame.draw.rect(screen, MENU_ITEM_HOVER, ht_rect, 3)
+
+    title = font_mid.render("How To Play", True, WHITE)
+    screen.blit(title, (ht_rect.centerx - title.get_width() // 2, ht_rect.y + 20))
+
+    lines = [
+        "Green leaves  -  press the direction they POINT",
+        "Orange leaves -  press the direction they MOVE",
+        "",
+        "Correct = 50 x multiplier",
+        "Meter fills -> multiplier increases",
+        "Wrong = lose meter or multiplier",
+        "",
+        "WASD or arrow keys to answer",
+        "Space = pause",
+    ]
+    for i, line in enumerate(lines):
+        t = font_small.render(line, True, WHITE)
+        screen.blit(t, (ht_rect.x + 40, ht_rect.y + 80 + i * 28))
+
+    # دکمهٔ Back
+    mouse_pos = pygame.mouse.get_pos()
+    hovered = BACK_RECT.collidepoint(mouse_pos)
+    bg = MENU_ITEM_HOVER if hovered else MENU_ITEM_BG
+    fg = MENU_TEXT_HOVER if hovered else MENU_TEXT
+    pygame.draw.rect(screen, bg, BACK_RECT)
+    bt = font_menu.render("Back", True, fg)
+    screen.blit(bt, (BACK_RECT.centerx - bt.get_width() // 2,
+                     BACK_RECT.centery - bt.get_height() // 2))
 
 # ====================================================================
 #  رسم صحنه
@@ -470,7 +541,6 @@ def draw_feedback():
 #  HUD
 # ====================================================================
 def draw_hud():
-    # دکمه Pause
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (34, 34, 34) if hovered else BLACK
@@ -483,7 +553,6 @@ def draw_hud():
     pygame.draw.rect(screen, PAUSE_BAR, (sx, sy, bar_w, bar_h))
     pygame.draw.rect(screen, PAUSE_BAR, (sx + bar_w + gap, sy, bar_w, bar_h))
 
-    # TIME
     pygame.draw.rect(screen, HUD_BG, TIME_RECT)
     lbl = font_hud.render("TIME", True, WHITE)
     val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
@@ -492,7 +561,6 @@ def draw_hud():
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
                       TIME_RECT.centery - val.get_height() // 2))
 
-    # SCORE
     pygame.draw.rect(screen, HUD_BG, SCORE_RECT)
     lbl = font_hud.render("SCORE", True, WHITE)
     val = font_hud.render(str(score), True, WHITE)
@@ -506,7 +574,6 @@ def draw_hud():
     dot_gap = 18
     n_dots = 4
     total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
-    # xN عرض تقریبی
     xN_txt = font_hud.render(f"x{multiplier}", True, WHITE)
     right_pad = 10
     xN_w = xN_txt.get_width()
@@ -518,7 +585,6 @@ def draw_hud():
     screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
                          METER_RECT.centery - xN_txt.get_height() // 2))
 
-    # POINTING / MOVING
     p_bg = POINTING_ACTIVE if mode == "pointing" else BTN_INACTIVE
     m_bg = MOVING_ACTIVE if mode == "moving" else BTN_INACTIVE
     p_fg = WHITE if mode == "pointing" else BTN_TEXT_INACTIVE
@@ -566,7 +632,7 @@ def add_score():
     global score, multiplier, meter
     score += 50 * multiplier
     meter += 1
-    if meter >= 4:          # ← ۴ نقطه
+    if meter >= 4:
         multiplier = min(multiplier + 1, 10)
         meter = 0
 
@@ -596,14 +662,14 @@ def check(player_dir):
         add_score()
         feedback_type = "correct"
         feedback_timer = 400
-        if not muted and SFX_CORRECT_1:
+        if not sound_muted and SFX_CORRECT_1:
             SFX_CORRECT_1.play()
             pygame.time.set_timer(pygame.USEREVENT + 5, 90, loops=1)
     else:
         penalize()
         feedback_type = "wrong"
         feedback_timer = 400
-        if not muted and SFX_WRONG_1:
+        if not sound_muted and SFX_WRONG_1:
             SFX_WRONG_1.play()
             pygame.time.set_timer(pygame.USEREVENT + 6, 130, loops=1)
 
@@ -646,6 +712,7 @@ SFX2_WRONG   = pygame.USEREVENT + 6
 pygame.time.set_timer(TIMER_EVENT, 1000)
 
 spawn_leaves()
+start_music()
 running = True
 last_frame_ms = pygame.time.get_ticks()
 
@@ -670,35 +737,45 @@ while running:
                     score += 250 * multiplier
 
         elif event.type == SFX2_CORRECT:
-            if not muted and SFX_CORRECT_2:
+            if not sound_muted and SFX_CORRECT_2:
                 SFX_CORRECT_2.play()
 
         elif event.type == SFX2_WRONG:
-            if not muted and SFX_WRONG_2:
+            if not sound_muted and SFX_WRONG_2:
                 SFX_WRONG_2.play()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # کلیک روی دکمه Pause
             if PAUSE_RECT.collidepoint(event.pos):
                 if not game_over:
                     paused = not paused
+                    show_howto = False
                     continue
-            # کلیک روی آیتم‌های منو
+            # کلیک داخل منو
             if paused:
-                update_menu_rects()
-                for item in menu_items:
-                    if item.rect.collidepoint(event.pos):
-                        item.action()
-                        break
+                if show_howto:
+                    if BACK_RECT.collidepoint(event.pos):
+                        menu_back_from_howto()
+                        continue
+                else:
+                    update_menu_rects()
+                    for item in menu_items:
+                        if item.rect.collidepoint(event.pos):
+                            item.action()
+                            break
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 if not game_over:
                     paused = not paused
+                    show_howto = False
                 continue
 
             if event.key == pygame.K_ESCAPE:
                 if game_over:
                     running = False
+                elif show_howto:
+                    show_howto = False
                 elif paused:
                     paused = False
                 else:
