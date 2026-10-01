@@ -1,12 +1,14 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v3 — Fixed Directions + Mouse Pause)
+EBB AND FLOW — PYTHON RECREATION (v4 — Fixed Orange Leaf Direction)
 ====================================================================
-تغییرات نسخه ۳:
-  • جهت برگ نارنجی = جهت حرکت (moving_dir) — مطابق قوانین Lumosity
-  • جهت برگ سبز  = جهت اشاره (pointing_dir) — مطابق قوانین Lumosity
-  • دکمه Pause با موس هم کار می‌کند (کلیک روی دکمه)
-  • خطاهای جهتی برطرف شد
+تغییرات نسخه ۴:
+  • برگ نارنجی حالا جهت «رسم» و «حرکت» مستقل داره (مطابق Lumosity)
+  • برگ سبز: جهت نوک = جهت اشاره (pointing_dir)
+  • برگ نارنجی: جهت نوک = orange_visual_dir (تصادفی مستقل)
+                جهت حرکت = moving_dir
+  • دکمه Pause با موس کار می‌کند
+  • بازخورد بصری Correct!/Wrong! و صدا
 ====================================================================
 """
 
@@ -64,7 +66,6 @@ BG_FALLBACK = (0x0A, 0x1A, 0x2E)
 
 LEAF_W, LEAF_H = 55, 100
 
-# دکمه Pause
 PAUSE_RECT = pygame.Rect(20, 15, 40, 40)
 
 # ====================================================================
@@ -116,12 +117,7 @@ def make_tone(freq, duration_ms, volume=0.35, wave="sine"):
     buf = array.array("h")
     for i in range(n_samples):
         t = i / sample_rate
-        if wave == "sine":
-            v = math.sin(2 * math.pi * freq * t)
-        elif wave == "square":
-            v = 1.0 if math.sin(2 * math.pi * freq * t) >= 0 else -1.0
-        else:
-            v = math.sin(2 * math.pi * freq * t)
+        v = math.sin(2 * math.pi * freq * t)
         fade_start = int(n_samples * 0.7)
         if i > fade_start:
             v *= 1.0 - (i - fade_start) / (n_samples - fade_start)
@@ -159,9 +155,11 @@ font_feed = make_font(64, True)
 # ====================================================================
 DIRS = [">>>>>", "<<<<<", "^^^^^", "vvvvv"]
 
-mode          = random.choice(["pointing", "moving"])
-pointing_dir  = random.choice(DIRS)
-moving_dir    = random.choice(DIRS)
+# --- سه متغیر مستقل برای جهت‌ها ---
+mode              = random.choice(["pointing", "moving"])
+pointing_dir      = random.choice(DIRS)   # جهت اشاره (برای برگ سبز)
+moving_dir        = random.choice(DIRS)   # جهت حرکت (برای هر دو)
+orange_visual_dir = random.choice(DIRS)   # جهت نوک برگ نارنجی (مستقل)
 
 score      = 0
 time_left  = 60
@@ -178,10 +176,9 @@ feedback_color = WHITE
 feedback_timer = 0
 
 # ====================================================================
-#  حرکت: هر برگ با سرعت و فاز خودش (شبیه بازی اصلی)
+#  اسپاون برگ‌ها
 # ====================================================================
 def spawn_leaves():
-    """همهٔ برگ‌ها با یه جهت حرکت مشترک، ولی در مکان‌های تصادفی"""
     global leaves
     leaves = []
     for _ in range(NUM_LEAVES):
@@ -255,17 +252,17 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
-    # ------- قانون Lumosity -------
-    # سبز → برگ باید در جهت «اشاره» رسم شود
-    # نارنجی → برگ باید در جهت «حرکت» رسم شود
+    # --- قانون Lumosity ---
+    # سبز: نوک برگ = جهت اشاره (pointing_dir)
+    # نارنجی: نوک برگ = جهت مستقل (orange_visual_dir)
+    #          حرکت واقعی = moving_dir
     if mode == "pointing":
         body, light = LEAF_GREEN, LEAF_GREEN_LIGHT
-        draw_dir = pointing_dir          # ← جهت اشاره
+        draw_dir = pointing_dir
     else:
         body, light = LEAF_ORANGE, LEAF_ORANGE_LIGHT
-        draw_dir = moving_dir            # ← جهت حرکت
+        draw_dir = orange_visual_dir
 
-    # رسم برگ‌ها
     surf = get_leaf(body, light, draw_dir)
     sw, sh = surf.get_size()
     off_x = (sw - LEAF_W) // 2
@@ -310,8 +307,6 @@ def draw_feedback():
     screen.blit(txt, (x, y))
 
 def draw_hud():
-    # ---- دکمه Pause ----
-    # اگه موس روشه، رنگ روشن‌تر
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (0x22, 0x22, 0x22) if hovered else BLACK
@@ -319,17 +314,14 @@ def draw_hud():
     pygame.draw.rect(screen, PAUSE_BAR, (30, 25, 5, 20))
     pygame.draw.rect(screen, PAUSE_BAR, (45, 25, 5, 20))
 
-    # ---- TIME ----
     pygame.draw.rect(screen, HUD_BG, (510, 10, 170, 50))
     txt = font_hud.render(f"TIME    0:{time_left:02d}", True, WHITE)
     screen.blit(txt, (525, 25))
 
-    # ---- SCORE ----
     pygame.draw.rect(screen, HUD_BG, (690, 10, 220, 50))
     txt = font_hud.render(f"SCORE    {score}", True, WHITE)
     screen.blit(txt, (705, 25))
 
-    # ---- Meter ----
     pygame.draw.rect(screen, HUD_BG, (920, 10, 200, 50))
     for i in range(5):
         dx = 945 + i * 22
@@ -338,7 +330,6 @@ def draw_hud():
     txt = font_hud.render(f"x{multiplier}", True, WHITE)
     screen.blit(txt, (1070, 25))
 
-    # ---- POINTING / MOVING ----
     px1, py1, px2, py2 = 360, 610, 560, 670
     mx1, my1, mx2, my2 = 560, 610, 760, 670
 
@@ -358,7 +349,7 @@ def draw_hud():
                       (my1 + my2) // 2 - txt.get_height() // 2))
 
 # ====================================================================
-#  حرکت برگ‌ها
+#  حرکت برگ‌ها (بر اساس moving_dir)
 # ====================================================================
 def move_leaves():
     global leaves
@@ -404,12 +395,15 @@ def penalize():
 #  بررسی پاسخ
 # ====================================================================
 def check(player_dir):
-    global mode, pointing_dir, moving_dir
+    global mode, pointing_dir, moving_dir, orange_visual_dir
     global feedback_text, feedback_color, feedback_timer
 
     if game_over or paused:
         return
 
+    # قانون Lumosity:
+    #   سبز  → بر اساس pointing_dir (جهت نوک)
+    #   نارنجی → بر اساس moving_dir (جهت حرکت)
     if mode == "pointing":
         correct = (pointing_dir == player_dir)
     else:
@@ -430,23 +424,25 @@ def check(player_dir):
         if SFX_WRONG_1: SFX_WRONG_1.play()
         pygame.time.set_timer(pygame.USEREVENT + 6, 130, loops=1)
 
-    # سؤال جدید
-    mode = random.choice(["pointing", "moving"])
-    pointing_dir = random.choice(DIRS)
-    moving_dir = random.choice(DIRS)
+    # سؤال جدید — هر سه جهت مستقل انتخاب می‌شن
+    mode              = random.choice(["pointing", "moving"])
+    pointing_dir      = random.choice(DIRS)
+    moving_dir        = random.choice(DIRS)
+    orange_visual_dir = random.choice(DIRS)
     spawn_leaves()
 
 # ====================================================================
 #  ریست
 # ====================================================================
 def restart_game():
-    global mode, pointing_dir, moving_dir
+    global mode, pointing_dir, moving_dir, orange_visual_dir
     global score, time_left, multiplier, meter, game_over, paused
     global feedback_timer
 
-    mode = random.choice(["pointing", "moving"])
-    pointing_dir = random.choice(DIRS)
-    moving_dir = random.choice(DIRS)
+    mode              = random.choice(["pointing", "moving"])
+    pointing_dir      = random.choice(DIRS)
+    moving_dir        = random.choice(DIRS)
+    orange_visual_dir = random.choice(DIRS)
 
     score = 0
     time_left = 60
@@ -498,7 +494,6 @@ while running:
             if SFX_WRONG_2: SFX_WRONG_2.play()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # کلیک روی دکمه Pause
             if PAUSE_RECT.collidepoint(event.pos):
                 if not game_over:
                     paused = not paused
