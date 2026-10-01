@@ -1,15 +1,13 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v5 — Final, Screenshot-Accurate)
+EBB AND FLOW — PYTHON RECREATION (v6 — Polished HUD)
 ====================================================================
-ویژگی‌ها:
-  • برگ آبشاری/قطره‌ای با نوک تیز (مطابق اسکرین‌شات)
-  • HUD دقیقاً مطابق اسکرین‌شات
-  • SCORE از راست به چپ زیاد می‌شود (right-aligned)
-  • قانون Lumosity: سبز=اشاره، نارنجی=حرکت
-  • برگ نارنجی: نوک و حرکت مستقل
-  • دکمه Pause با موس + کیبورد
-  • صدا و بازخورد بصری
+اصلاحات نسخه ۶:
+  • دکمه Pause: خطوط دقیقاً در مرکز کادر
+  • xN چسبیده به لبه راست کادر Meter
+  • SCORE راست‌چین دقیق
+  • TIME چپ‌چین با عدد راست‌چین
+  • شکل برگ آبشاری/قطره‌ای
 ====================================================================
 """
 
@@ -40,7 +38,7 @@ pygame.display.set_caption("Ebb and Flow")
 clock = pygame.time.Clock()
 
 # ====================================================================
-#  رنگ‌ها (از اسکرین‌شات)
+#  رنگ‌ها
 # ====================================================================
 LEAF_GREEN        = (76, 175, 80)
 LEAF_GREEN_LIGHT  = (126, 217, 87)
@@ -67,7 +65,15 @@ BG_FALLBACK = (10, 26, 46)
 
 LEAF_W, LEAF_H = 70, 100
 
-PAUSE_RECT = pygame.Rect(10, 10, 50, 50)
+# ====================================================================
+#  کادرها (تعریف‌شده یک‌بار برای استفاده در رسم و کلیک)
+# ====================================================================
+PAUSE_RECT  = pygame.Rect(10, 10, 50, 50)
+TIME_RECT   = pygame.Rect(510, 0, 170, 70)
+SCORE_RECT  = pygame.Rect(690, 0, 220, 70)
+METER_RECT  = pygame.Rect(920, 0, 200, 70)
+POINT_RECT  = pygame.Rect(360, 610, 200, 70)
+MOVE_RECT   = pygame.Rect(560, 610, 200, 70)
 
 # ====================================================================
 #  پس‌زمینه
@@ -184,47 +190,29 @@ def spawn_leaves():
         leaves.append([x, y])
 
 # ====================================================================
-#  ساخت سطح برگ — آبشاری/قطره‌ای با نوک تیز
+#  ساخت سطح برگ
 # ====================================================================
 def make_leaf_surface(body_color, light_color, direction):
-    """
-    شکل برگ:
-      - پایین: گرد
-      - بالا:  نوک تیز
-      - خط دور سفید ضخیم
-      - خط روشن وسط (مطابق Shader Custom/Leaf)
-      - دُم از پایین (خارج از بدنه)
-    """
     pad = 50
     w, h = LEAF_W + pad * 2, LEAF_H + pad * 2
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
     cx, cy = w // 2, h // 2
     rx, ry = LEAF_W // 2, LEAF_H // 2
 
-    # --- شکل قطره‌ای/قلبی ---
-    # در دستگاه مختصات محلی، نوک در جهت +x قرار دارد.
-    # سپس با rot به جهت مورد نظر چرخانده می‌شود.
     pts = []
     N = 80
     for i in range(N):
         t = i / N * 2 * math.pi
-        # فاصله از نوک (زاویه 0)
-        d = t
-        if d > math.pi:
-            d = 2 * math.pi - d
-        # ضریب نوک‌تیزی: در جهت نوک، شعاع بیشتر؛ در جهت مخالف (دم)، شعاع کمتر
+        d = t if t <= math.pi else 2 * math.pi - t
         sharpness = 1.0
-        # نوک (نزدیک به 0)
         if d < math.pi * 0.45:
             sharpness = 1.15
-        # دم (نزدیک به π)
         elif d > math.pi * 0.75:
             sharpness = 0.85
         px = rx * math.cos(t) * sharpness
         py = ry * math.sin(t) * sharpness
         pts.append((px, py))
 
-    # چرخش بر اساس جهت
     if direction == ">>>>>":   rot = 0
     elif direction == "vvvvv": rot = math.pi / 2
     elif direction == "<<<<<": rot = math.pi
@@ -236,12 +224,10 @@ def make_leaf_surface(body_color, light_color, direction):
         ryp = px * math.sin(rot) + py * math.cos(rot)
         rotated.append((cx + rxp, cy + ryp))
 
-    # --- بدنه برگ ---
     pygame.draw.polygon(surf, body_color, rotated)
     pygame.draw.polygon(surf, LEAF_OUTLINE, rotated, 6)
 
-    # --- دُم (ساقه) ---
-    # دُم در سمت مخالف نوک قرار دارد
+    # دُم
     stem_len, stem_w = 22, 12
     if direction == ">>>>>":
         stem = pygame.Rect(cx - rx - stem_len, cy - stem_w // 2, stem_len, stem_w)
@@ -249,12 +235,12 @@ def make_leaf_surface(body_color, light_color, direction):
         stem = pygame.Rect(cx + rx, cy - stem_w // 2, stem_len, stem_w)
     elif direction == "^^^^^":
         stem = pygame.Rect(cx - stem_w // 2, cy + ry, stem_w, stem_len)
-    else:  # vvvvv
+    else:
         stem = pygame.Rect(cx - stem_w // 2, cy - ry - stem_len, stem_w, stem_len)
     pygame.draw.rect(surf, body_color, stem)
     pygame.draw.rect(surf, LEAF_OUTLINE, stem, 5)
 
-    # --- خط روشن وسط ---
+    # خط روشن وسط
     if direction in (">>>>>", "<<<<<"):
         pygame.draw.line(surf, light_color,
                          (cx - rx * 0.55, cy), (cx + rx * 0.55, cy), 5)
@@ -280,7 +266,6 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
-    # قانون Lumosity
     if mode == "pointing":
         body, light = LEAF_GREEN, LEAF_GREEN_LIGHT
         draw_dir = pointing_dir
@@ -332,57 +317,74 @@ def draw_feedback():
     screen.blit(txt, (x, y))
 
 # ====================================================================
-#  HUD — مطابق اسکرین‌شات
+#  HUD — دقیق و متمرکز
 # ====================================================================
 def draw_hud():
+    # ---------- دکمه Pause ----------
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (34, 34, 34) if hovered else BLACK
     pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
-    pygame.draw.rect(screen, PAUSE_BAR, (20, 22, 6, 26))
-    pygame.draw.rect(screen, PAUSE_BAR, (36, 22, 6, 26))
+
+    # دو خط Pause در مرکز کادر
+    bar_w, bar_h = 6, 26
+    gap = 10
+    total_w = bar_w * 2 + gap
+    start_x = PAUSE_RECT.centerx - total_w // 2
+    start_y = PAUSE_RECT.centery - bar_h // 2
+    pygame.draw.rect(screen, PAUSE_BAR, (start_x, start_y, bar_w, bar_h))
+    pygame.draw.rect(screen, PAUSE_BAR,
+                     (start_x + bar_w + gap, start_y, bar_w, bar_h))
 
     # ---------- TIME ----------
-    pygame.draw.rect(screen, HUD_BG, (510, 0, 170, 70))
+    pygame.draw.rect(screen, HUD_BG, TIME_RECT)
     lbl = font_hud.render("TIME", True, WHITE)
     val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
-    screen.blit(lbl, (510 + 20, 22))
-    screen.blit(val, (510 + 170 - val.get_width() - 20, 22))
+    pad = 20
+    screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height() // 2))
+    screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
+                      TIME_RECT.centery - val.get_height() // 2))
 
-    # ---------- SCORE (right-aligned) ----------
-    pygame.draw.rect(screen, HUD_BG, (690, 0, 220, 70))
+    # ---------- SCORE (راست‌چین) ----------
+    pygame.draw.rect(screen, HUD_BG, SCORE_RECT)
     lbl = font_hud.render("SCORE", True, WHITE)
     val = font_hud.render(str(score), True, WHITE)
-    screen.blit(lbl, (690 + 20, 22))
-    screen.blit(val, (690 + 220 - val.get_width() - 20, 22))
+    screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
+    screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
+                      SCORE_RECT.centery - val.get_height() // 2))
 
     # ---------- Meter + xN ----------
-    pygame.draw.rect(screen, HUD_BG, (920, 0, 200, 70))
+    pygame.draw.rect(screen, HUD_BG, METER_RECT)
+
+    dot_r   = 8
+    dot_gap = 20
+    dots_start_x = METER_RECT.x + 15 + dot_r
     for i in range(5):
-        dx = 935 + i * 20
+        dx = dots_start_x + i * dot_gap
         c = DOT_ON if i < meter else DOT_OFF
-        pygame.draw.circle(screen, c, (dx, 35), 8)
+        pygame.draw.circle(screen, c, (dx, METER_RECT.centery), dot_r)
+
+    # xN چسبیده به لبه راست
     val = font_hud.render(f"x{multiplier}", True, WHITE)
-    screen.blit(val, (1045, 22))
+    right_pad = 12
+    screen.blit(val, (METER_RECT.right - val.get_width() - right_pad,
+                      METER_RECT.centery - val.get_height() // 2))
 
     # ---------- POINTING / MOVING ----------
-    px1, py1, px2, py2 = 360, 610, 560, 680
-    mx1, my1, mx2, my2 = 560, 610, 760, 680
-
     p_bg = POINTING_ACTIVE if mode == "pointing" else BTN_INACTIVE
     m_bg = MOVING_ACTIVE if mode == "moving" else BTN_INACTIVE
     p_fg = WHITE if mode == "pointing" else BTN_TEXT_INACTIVE
     m_fg = WHITE if mode == "moving" else BTN_TEXT_INACTIVE
 
-    pygame.draw.rect(screen, p_bg, (px1, py1, px2 - px1, py2 - py1))
+    pygame.draw.rect(screen, p_bg, POINT_RECT)
     txt = font_btn.render("POINTING", True, p_fg)
-    screen.blit(txt, ((px1 + px2) // 2 - txt.get_width() // 2,
-                      (py1 + py2) // 2 - txt.get_height() // 2))
+    screen.blit(txt, (POINT_RECT.centerx - txt.get_width() // 2,
+                      POINT_RECT.centery - txt.get_height() // 2))
 
-    pygame.draw.rect(screen, m_bg, (mx1, my1, mx2 - mx1, my2 - my1))
+    pygame.draw.rect(screen, m_bg, MOVE_RECT)
     txt = font_btn.render("MOVING", True, m_fg)
-    screen.blit(txt, ((mx1 + mx2) // 2 - txt.get_width() // 2,
-                      (my1 + my2) // 2 - txt.get_height() // 2))
+    screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
+                      MOVE_RECT.centery - txt.get_height() // 2))
 
 # ====================================================================
 #  حرکت برگ‌ها
@@ -488,7 +490,7 @@ def restart_game():
 # ====================================================================
 #  حلقهٔ اصلی
 # ====================================================================
-TIMER_EVENT = pygame.USEREVENT + 1
+TIMER_EVENT  = pygame.USEREVENT + 1
 SFX2_CORRECT = pygame.USEREVENT + 5
 SFX2_WRONG   = pygame.USEREVENT + 6
 
