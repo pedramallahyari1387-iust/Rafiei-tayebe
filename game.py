@@ -1,11 +1,10 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v12 — Soft Background Waterfall)
+EBB AND FLOW — PYTHON RECREATION (v13 — HUD Spacing)
 ====================================================================
-تغییرات نسخه ۱۲:
-  • موسیقی آبشار با صدای کمتر (0.15 به‌جای 0.4)
-  • موسیقی همیشه در پس‌زمینه پخش می‌شود
-  • صدای SFX از موسیقی بلندتر است (برای وضوح بیشتر)
+تغییرات نسخه ۱۳:
+  • TIME / SCORE / METER با فاصله ۵ پیکسل از هم
+  • POINTING / MOVING با فاصله ۱۰ پیکسل از هم
 ====================================================================
 """
 
@@ -69,15 +68,38 @@ BG_FALLBACK = (10, 26, 46)
 LEAF_W, LEAF_H = 60, 110
 
 # ====================================================================
-#  کادرها
+#  کادرهای HUD — با فاصله‌های دلخواه
 # ====================================================================
-PAUSE_RECT  = pygame.Rect(8, 8, 44, 44)
-TIME_RECT   = pygame.Rect(360, 0, 140, 60)
-SCORE_RECT  = pygame.Rect(500, 0, 160, 60)
-METER_RECT  = pygame.Rect(660, 0, 140, 60)
+PAUSE_RECT = pygame.Rect(8, 8, 44, 44)
 
-POINT_RECT  = pygame.Rect(250, 530, 150, 60)
-MOVE_RECT   = pygame.Rect(400, 530, 150, 60)
+# فاصلهٔ بین کادرهای بالا: ۵ پیکسل
+HUD_GAP_TOP = 5
+
+HUD_ITEM_H  = 60              # ارتفاع کادرهای بالا
+TIME_W      = 140
+SCORE_W     = 160
+METER_W     = 140
+TOTAL_TOP_W = TIME_W + SCORE_W + METER_W + HUD_GAP_TOP * 2
+HUD_START_X = (WINDOW_W - TOTAL_TOP_W) // 2   # وسط‌چین
+
+TIME_RECT  = pygame.Rect(HUD_START_X, 0, TIME_W, HUD_ITEM_H)
+SCORE_RECT = pygame.Rect(TIME_RECT.right + HUD_GAP_TOP, 0, SCORE_W, HUD_ITEM_H)
+METER_RECT = pygame.Rect(SCORE_RECT.right + HUD_GAP_TOP, 0, METER_W, HUD_ITEM_H)
+
+# فاصلهٔ بین POINTING و MOVING: ۱۰ پیکسل
+HUD_GAP_BOTTOM = 10
+
+POINT_W = 150
+MOVE_W  = 150
+HUD_BOTTOM_H = 60
+HUD_BOTTOM_Y = WINDOW_H - HUD_BOTTOM_H - 10
+
+TOTAL_BOTTOM_W = POINT_W + MOVE_W + HUD_GAP_BOTTOM
+BOTTOM_START_X = (WINDOW_W - TOTAL_BOTTOM_W) // 2
+
+POINT_RECT = pygame.Rect(BOTTOM_START_X, HUD_BOTTOM_Y, POINT_W, HUD_BOTTOM_H)
+MOVE_RECT  = pygame.Rect(POINT_RECT.right + HUD_GAP_BOTTOM,
+                         HUD_BOTTOM_Y, MOVE_W, HUD_BOTTOM_H)
 
 # ====================================================================
 #  مسیرها
@@ -92,7 +114,7 @@ LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
 MUSIC_PATH      = r"C:\Users\ASUS\Downloads\MUSIC.mp3"
 
 # ====================================================================
-#  بارگذاری پس‌زمینه
+#  پس‌زمینه
 # ====================================================================
 def find_bg():
     for p in BG_CANDIDATES:
@@ -125,7 +147,7 @@ def load_background():
 bg_surface = load_background()
 
 # ====================================================================
-#  بارگذاری برگ
+#  برگ
 # ====================================================================
 def load_leaf_image(path):
     if not os.path.exists(path):
@@ -160,7 +182,7 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-#  صداهای SFX (مصنوعی — بلندتر از موسیقی)
+#  SFX
 # ====================================================================
 def make_tone(freq, duration_ms, volume=0.45):
     if not AUDIO_OK:
@@ -181,16 +203,15 @@ def make_tone(freq, duration_ms, volume=0.45):
         print(f"[Audio] tone failed: {e}")
         return None
 
-# SFX بلندتر از موسیقی — برای وضوح بیشتر
 SFX_CORRECT_1 = make_tone(880, 80, 0.50)
 SFX_CORRECT_2 = make_tone(1320, 140, 0.45)
 SFX_WRONG_1   = make_tone(220, 120, 0.55)
 SFX_WRONG_2   = make_tone(160, 180, 0.50)
 
 # ====================================================================
-#  موسیقی پس‌زمینه — آبشار ملایم
+#  موسیقی
 # ====================================================================
-MUSIC_VOLUME = 0.1   # ← کم و ملایم (قبلاً 0.4 بود)
+MUSIC_VOLUME = 0.12
 
 music_loaded = False
 if AUDIO_OK and os.path.exists(MUSIC_PATH):
@@ -207,27 +228,21 @@ else:
 
 def start_music():
     if music_loaded:
-        try:
-            pygame.mixer.music.play(loops=-1)
-        except Exception as e:
-            print(f"[Music] play failed: {e}")
+        try: pygame.mixer.music.play(loops=-1)
+        except Exception as e: print(f"[Music] play failed: {e}")
 
 def stop_music():
     if music_loaded:
-        try:
-            pygame.mixer.music.stop()
-        except Exception:
-            pass
+        try: pygame.mixer.music.stop()
+        except Exception: pass
 
 # ====================================================================
 #  فونت‌ها
 # ====================================================================
 def make_font(size, bold=True):
     for name in ("Segoe UI", "Arial", "Tahoma", "Verdana"):
-        try:
-            return pygame.font.SysFont(name, size, bold=bold)
-        except Exception:
-            continue
+        try: return pygame.font.SysFont(name, size, bold=bold)
+        except Exception: continue
     return pygame.font.Font(None, size)
 
 font_hud   = make_font(18, True)
@@ -263,9 +278,6 @@ leaves     = []
 feedback_type  = None
 feedback_timer = 0
 
-# ====================================================================
-#  پخش برگ‌ها
-# ====================================================================
 def spawn_leaves():
     global leaves
     leaves = []
@@ -275,7 +287,6 @@ def spawn_leaves():
     cell_h = (GAME_BOTTOM - GAME_TOP - 40) / rows
     cells = [(c, r) for r in range(rows) for c in range(cols)]
     random.shuffle(cells)
-
     for c, r in cells[:NUM_LEAVES]:
         cx = 30 + c * cell_w + cell_w / 2
         cy = GAME_TOP + 20 + r * cell_h + cell_h / 2
@@ -283,9 +294,7 @@ def spawn_leaves():
         max_jy = max(0, cell_h / 2 - LEAF_H / 2 - 4)
         jx = random.uniform(-max_jx, max_jx)
         jy = random.uniform(-max_jy, max_jy)
-        x = cx + jx - LEAF_W / 2
-        y = cy + jy - LEAF_H / 2
-        leaves.append([x, y])
+        leaves.append([cx + jx - LEAF_W / 2, cy + jy - LEAF_H / 2])
 
 # ====================================================================
 #  منو
@@ -297,42 +306,25 @@ class MenuItem:
         self.action = action
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.hover = False
-
-    def get_label(self):
-        return self.label_fn()
+    def get_label(self): return self.label_fn()
 
 def menu_resume():
-    global paused
-    paused = False
-
+    global paused; paused = False
 def menu_restart():
-    global paused
-    restart_game()
-    paused = False
-
+    global paused; restart_game(); paused = False
 def menu_toggle_sound():
-    global sound_muted
-    sound_muted = not sound_muted
-
+    global sound_muted; sound_muted = not sound_muted
 def menu_toggle_music():
     global music_muted
     music_muted = not music_muted
-    if music_muted:
-        stop_music()
-    else:
-        start_music()
-
+    if music_muted: stop_music()
+    else: start_music()
 def menu_quit():
-    global running
-    running = False
-
+    global running; running = False
 def menu_howto():
-    global show_howto
-    show_howto = True
-
+    global show_howto; show_howto = True
 def menu_back_from_howto():
-    global show_howto
-    show_howto = False
+    global show_howto; show_howto = False
 
 menu_items = [
     MenuItem("resume",     lambda: "Resume",                          menu_resume),
@@ -358,44 +350,31 @@ def update_menu_rects():
 
 BACK_RECT = pygame.Rect(WINDOW_W // 2 - 80, WINDOW_H - 90, 160, 44)
 
-# ====================================================================
-#  تیک / ضربدر
-# ====================================================================
 def draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN):
-    pts = [
-        (cx - size * 0.4, cy),
-        (cx - size * 0.1, cy + size * 0.3),
-        (cx + size * 0.4, cy - size * 0.3),
-    ]
+    pts = [(cx - size*0.4, cy), (cx - size*0.1, cy + size*0.3),
+           (cx + size*0.4, cy - size*0.3)]
     pygame.draw.lines(screen, color, False, pts, 10)
 
 def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
     off = size * 0.35
-    pygame.draw.line(screen, color, (cx - off, cy - off), (cx + off, cy + off), 10)
-    pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 10)
+    pygame.draw.line(screen, color, (cx-off, cy-off), (cx+off, cy+off), 10)
+    pygame.draw.line(screen, color, (cx+off, cy-off), (cx-off, cy+off), 10)
 
-# ====================================================================
-#  منو
-# ====================================================================
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
     ov.fill((0, 0, 0, 180))
     screen.blit(ov, (0, 0))
-
     paused_rect = pygame.Rect(0, 0, 140, 44)
     pygame.draw.rect(screen, (230, 230, 230), paused_rect)
     pygame.draw.rect(screen, (40, 40, 40), (14, 12, 5, 20))
     pygame.draw.rect(screen, (40, 40, 40), (24, 12, 5, 20))
     txt = font_menu.render("Paused", True, (40, 40, 40))
     screen.blit(txt, (40, 8))
-
     if show_howto:
         draw_howto_panel()
         return
-
     update_menu_rects()
     mouse_pos = pygame.mouse.get_pos()
-
     for item in menu_items:
         item.hover = item.rect.collidepoint(mouse_pos)
         bg = MENU_ITEM_HOVER if item.hover else MENU_ITEM_BG
@@ -409,25 +388,19 @@ def draw_howto_panel():
     ht_rect = pygame.Rect(60, 70, WINDOW_W - 120, WINDOW_H - 170)
     pygame.draw.rect(screen, (10, 25, 45), ht_rect)
     pygame.draw.rect(screen, MENU_ITEM_HOVER, ht_rect, 3)
-
     title = font_mid.render("How To Play", True, WHITE)
     screen.blit(title, (ht_rect.centerx - title.get_width() // 2, ht_rect.y + 20))
-
     lines = [
         "Green leaves  -  press the direction they POINT",
         "Orange leaves -  press the direction they MOVE",
-        "",
-        "Correct = 50 x multiplier",
+        "", "Correct = 50 x multiplier",
         "Meter fills -> multiplier increases",
         "Wrong = lose meter or multiplier",
-        "",
-        "WASD or arrow keys to answer",
-        "Space = pause",
+        "", "WASD or arrow keys to answer", "Space = pause",
     ]
     for i, line in enumerate(lines):
         t = font_small.render(line, True, WHITE)
         screen.blit(t, (ht_rect.x + 40, ht_rect.y + 80 + i * 28))
-
     mouse_pos = pygame.mouse.get_pos()
     hovered = BACK_RECT.collidepoint(mouse_pos)
     bg = MENU_ITEM_HOVER if hovered else MENU_ITEM_BG
@@ -476,16 +449,15 @@ def draw_scene():
         t2 = font_mid.render(f"Final Score: {score}", True, WHITE)
         t3 = font_hud.render("Press R to restart  |  ESC to quit",
                              True, (200, 200, 200))
-        screen.blit(t1, (WINDOW_W // 2 - t1.get_width() // 2, WINDOW_H // 2 - 80))
-        screen.blit(t2, (WINDOW_W // 2 - t2.get_width() // 2, WINDOW_H // 2))
-        screen.blit(t3, (WINDOW_W // 2 - t3.get_width() // 2, WINDOW_H // 2 + 50))
+        screen.blit(t1, (WINDOW_W//2 - t1.get_width()//2, WINDOW_H//2 - 80))
+        screen.blit(t2, (WINDOW_W//2 - t2.get_width()//2, WINDOW_H//2))
+        screen.blit(t3, (WINDOW_W//2 - t3.get_width()//2, WINDOW_H//2 + 50))
 
 def draw_feedback():
     global feedback_timer
     if feedback_timer <= 0 or feedback_type is None:
         return
-    cx = WINDOW_W // 2
-    cy = WINDOW_H // 2
+    cx, cy = WINDOW_W // 2, WINDOW_H // 2
     if feedback_type == "correct":
         draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN)
     else:
@@ -495,6 +467,7 @@ def draw_feedback():
 #  HUD
 # ====================================================================
 def draw_hud():
+    # دکمه Pause
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (34, 34, 34) if hovered else BLACK
@@ -507,21 +480,24 @@ def draw_hud():
     pygame.draw.rect(screen, PAUSE_BAR, (sx, sy, bar_w, bar_h))
     pygame.draw.rect(screen, PAUSE_BAR, (sx + bar_w + gap, sy, bar_w, bar_h))
 
+    # TIME
     pygame.draw.rect(screen, HUD_BG, TIME_RECT)
     lbl = font_hud.render("TIME", True, WHITE)
     val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
     pad = 12
-    screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height() // 2))
+    screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
-                      TIME_RECT.centery - val.get_height() // 2))
+                      TIME_RECT.centery - val.get_height()//2))
 
+    # SCORE
     pygame.draw.rect(screen, HUD_BG, SCORE_RECT)
     lbl = font_hud.render("SCORE", True, WHITE)
     val = font_hud.render(str(score), True, WHITE)
-    screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
+    screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
-                      SCORE_RECT.centery - val.get_height() // 2))
+                      SCORE_RECT.centery - val.get_height()//2))
 
+    # METER
     pygame.draw.rect(screen, HUD_BG, METER_RECT)
     dot_r = 7
     dot_gap = 18
@@ -530,14 +506,15 @@ def draw_hud():
     xN_txt = font_hud.render(f"x{multiplier}", True, WHITE)
     right_pad = 10
     xN_w = xN_txt.get_width()
-    dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w) // 2 + dot_r
+    dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w)//2 + dot_r
     for i in range(n_dots):
         dx = dots_start_x + i * dot_gap
         c = DOT_ON if i < meter else DOT_OFF
         pygame.draw.circle(screen, c, (dx, METER_RECT.centery), dot_r)
     screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
-                         METER_RECT.centery - xN_txt.get_height() // 2))
+                         METER_RECT.centery - xN_txt.get_height()//2))
 
+    # POINTING / MOVING
     p_bg = POINTING_ACTIVE if mode == "pointing" else BTN_INACTIVE
     m_bg = MOVING_ACTIVE if mode == "moving" else BTN_INACTIVE
     p_fg = WHITE if mode == "pointing" else BTN_TEXT_INACTIVE
@@ -545,16 +522,16 @@ def draw_hud():
 
     pygame.draw.rect(screen, p_bg, POINT_RECT)
     txt = font_btn.render("POINTING", True, p_fg)
-    screen.blit(txt, (POINT_RECT.centerx - txt.get_width() // 2,
-                      POINT_RECT.centery - txt.get_height() // 2))
+    screen.blit(txt, (POINT_RECT.centerx - txt.get_width()//2,
+                      POINT_RECT.centery - txt.get_height()//2))
 
     pygame.draw.rect(screen, m_bg, MOVE_RECT)
     txt = font_btn.render("MOVING", True, m_fg)
-    screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
-                      MOVE_RECT.centery - txt.get_height() // 2))
+    screen.blit(txt, (MOVE_RECT.centerx - txt.get_width()//2,
+                      MOVE_RECT.centery - txt.get_height()//2))
 
 # ====================================================================
-#  حرکت برگ‌ها
+#  حرکت
 # ====================================================================
 def move_leaves():
     global leaves
@@ -591,10 +568,8 @@ def add_score():
 
 def penalize():
     global multiplier, meter
-    if meter > 0:
-        meter = 0
-    else:
-        multiplier = max(multiplier - 1, 1)
+    if meter > 0: meter = 0
+    else: multiplier = max(multiplier - 1, 1)
 
 # ====================================================================
 #  بررسی پاسخ
@@ -606,10 +581,8 @@ def check(player_dir):
     if game_over or paused:
         return
 
-    if mode == "pointing":
-        correct = (pointing_dir == player_dir)
-    else:
-        correct = (moving_dir == player_dir)
+    if mode == "pointing": correct = (pointing_dir == player_dir)
+    else:                   correct = (moving_dir == player_dir)
 
     if correct:
         add_score()
@@ -644,7 +617,6 @@ def restart_game():
     pointing_dir      = random.choice(DIRS)
     moving_dir        = random.choice(DIRS)
     orange_visual_dir = random.choice(DIRS)
-
     score = 0
     time_left = 60
     multiplier = 1
@@ -656,7 +628,7 @@ def restart_game():
     spawn_leaves()
 
 # ====================================================================
-#  حلقهٔ اصلی
+#  حلقه اصلی
 # ====================================================================
 TIMER_EVENT  = pygame.USEREVENT + 1
 SFX2_CORRECT = pygame.USEREVENT + 5
@@ -673,30 +645,21 @@ while running:
     now_ms = pygame.time.get_ticks()
     dt_ms = now_ms - last_frame_ms
     last_frame_ms = now_ms
-
-    if feedback_timer > 0:
-        feedback_timer -= dt_ms
+    if feedback_timer > 0: feedback_timer -= dt_ms
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
         elif event.type == TIMER_EVENT:
             if not game_over and not paused:
-                if time_left > 0:
-                    time_left -= 1
+                if time_left > 0: time_left -= 1
                 else:
                     game_over = True
                     score += 250 * multiplier
-
         elif event.type == SFX2_CORRECT:
-            if not sound_muted and SFX_CORRECT_2:
-                SFX_CORRECT_2.play()
-
+            if not sound_muted and SFX_CORRECT_2: SFX_CORRECT_2.play()
         elif event.type == SFX2_WRONG:
-            if not sound_muted and SFX_WRONG_2:
-                SFX_WRONG_2.play()
-
+            if not sound_muted and SFX_WRONG_2: SFX_WRONG_2.play()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if PAUSE_RECT.collidepoint(event.pos):
                 if not game_over:
@@ -714,40 +677,26 @@ while running:
                         if item.rect.collidepoint(event.pos):
                             item.action()
                             break
-
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 if not game_over:
                     paused = not paused
                     show_howto = False
                 continue
-
             if event.key == pygame.K_ESCAPE:
-                if game_over:
-                    running = False
-                elif show_howto:
-                    show_howto = False
-                elif paused:
-                    paused = False
-                else:
-                    paused = True
+                if game_over: running = False
+                elif show_howto: show_howto = False
+                elif paused: paused = False
+                else: paused = True
                 continue
-
             if event.key == pygame.K_r and game_over:
                 restart_game()
                 continue
-
-            if paused:
-                continue
-
-            if event.key in (pygame.K_UP, pygame.K_w):
-                check("^^^^^")
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
-                check("vvvvv")
-            elif event.key in (pygame.K_LEFT, pygame.K_a):
-                check("<<<<<")
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                check(">>>>>")
+            if paused: continue
+            if event.key in (pygame.K_UP, pygame.K_w): check("^^^^^")
+            elif event.key in (pygame.K_DOWN, pygame.K_s): check("vvvvv")
+            elif event.key in (pygame.K_LEFT, pygame.K_a): check("<<<<<")
+            elif event.key in (pygame.K_RIGHT, pygame.K_d): check(">>>>>")
 
     move_leaves()
     draw_scene()
