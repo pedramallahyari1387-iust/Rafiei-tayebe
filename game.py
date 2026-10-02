@@ -1,12 +1,11 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v11 — Real Waterfall Music)
+EBB AND FLOW — PYTHON RECREATION (v12 — Soft Background Waterfall)
 ====================================================================
-تغییرات نسخه ۱۱:
-  • موسیقی پس‌زمینه از فایل MUSIC.mp3 لود می‌شود
-  • دکمهٔ Mute Music واقعاً موسیقی را قطع/وصل می‌کند
-  • دکمهٔ Mute Sound واقعاً صداهای SFX را قطع/وصل می‌کند
-  • سایر ویژگی‌های نسخه ۱۰ حفظ شده
+تغییرات نسخه ۱۲:
+  • موسیقی آبشار با صدای کمتر (0.15 به‌جای 0.4)
+  • موسیقی همیشه در پس‌زمینه پخش می‌شود
+  • صدای SFX از موسیقی بلندتر است (برای وضوح بیشتر)
 ====================================================================
 """
 
@@ -161,9 +160,9 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-#  صداهای SFX (مصنوعی)
+#  صداهای SFX (مصنوعی — بلندتر از موسیقی)
 # ====================================================================
-def make_tone(freq, duration_ms, volume=0.30):
+def make_tone(freq, duration_ms, volume=0.45):
     if not AUDIO_OK:
         return None
     sample_rate = 44100
@@ -182,21 +181,24 @@ def make_tone(freq, duration_ms, volume=0.30):
         print(f"[Audio] tone failed: {e}")
         return None
 
-SFX_CORRECT_1 = make_tone(880, 80, 0.30)
-SFX_CORRECT_2 = make_tone(1320, 140, 0.28)
-SFX_WRONG_1   = make_tone(220, 120, 0.35)
-SFX_WRONG_2   = make_tone(160, 180, 0.32)
+# SFX بلندتر از موسیقی — برای وضوح بیشتر
+SFX_CORRECT_1 = make_tone(880, 80, 0.50)
+SFX_CORRECT_2 = make_tone(1320, 140, 0.45)
+SFX_WRONG_1   = make_tone(220, 120, 0.55)
+SFX_WRONG_2   = make_tone(160, 180, 0.50)
 
 # ====================================================================
-#  موسیقی پس‌زمینه — از فایل MUSIC.mp3
+#  موسیقی پس‌زمینه — آبشار ملایم
 # ====================================================================
+MUSIC_VOLUME = 0.1   # ← کم و ملایم (قبلاً 0.4 بود)
+
 music_loaded = False
 if AUDIO_OK and os.path.exists(MUSIC_PATH):
     try:
         pygame.mixer.music.load(MUSIC_PATH)
-        pygame.mixer.music.set_volume(0.4)
+        pygame.mixer.music.set_volume(MUSIC_VOLUME)
         music_loaded = True
-        print(f"[Music] loaded OK from {MUSIC_PATH}")
+        print(f"[Music] loaded OK from {MUSIC_PATH}  volume={MUSIC_VOLUME}")
     except Exception as e:
         print(f"[Music] load failed: {e}")
 else:
@@ -214,20 +216,6 @@ def stop_music():
     if music_loaded:
         try:
             pygame.mixer.music.stop()
-        except Exception:
-            pass
-
-def pause_music():
-    if music_loaded:
-        try:
-            pygame.mixer.music.pause()
-        except Exception:
-            pass
-
-def resume_music():
-    if music_loaded:
-        try:
-            pygame.mixer.music.unpause()
         except Exception:
             pass
 
@@ -276,7 +264,7 @@ feedback_type  = None
 feedback_timer = 0
 
 # ====================================================================
-#  پخش برگ‌ها — Grid + Jitter (بدون همپوشانی)
+#  پخش برگ‌ها
 # ====================================================================
 def spawn_leaves():
     global leaves
