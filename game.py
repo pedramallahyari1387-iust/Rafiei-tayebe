@@ -1,12 +1,11 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v16 — HUD Polish)
+EBB AND FLOW — PYTHON RECREATION (v17 — Light HUD + Pause Hover)
 ====================================================================
-تغییرات نسخه ۱۶:
-  • کادرهای HUD بالا: خاکستری نیمه‌شفاف (RGBA 80,80,80,180)
-  • دکمه Pause: چسبیده به گوشه بالا-چپ، بدون فاصله
-  • POINTING / MOVING: هم‌رنگ و هم‌اندازهٔ بازی اصلی
-  • اندازهٔ فونت HUD بزرگ‌تر و واضح‌تر
+تغییرات نسخه ۱۷:
+  • HUD بالا: پس‌زمینه آبی-خاکستری روشن، متن تیره
+  • دکمه Pause در بازی: با هاور متن/خطوط سفید + پس‌زمینه آبی
+  • دکمه Pause در منو: با هاور پس‌زمینه سفیدتر (230 → 255)
 ====================================================================
 """
 
@@ -47,14 +46,20 @@ LEAF_OUTLINE      = (255, 255, 255)
 
 WHITE      = (255, 255, 255)
 BLACK      = (0, 0, 0)
-HUD_BG     = (80, 80, 80, 180)     # ← خاکستری نیمه‌شفاف (RGBA)
-DOT_ON     = (255, 255, 255)
-DOT_OFF    = (120, 120, 120, 200)  # ← نقطه‌های خالی هم نیمه‌شفاف
+
+# HUD بالا: آبی-خاکستری روشن (مطابق اسکرین‌شات)، متن تیره
+HUD_BG     = (150, 160, 175, 235)
+HUD_TEXT   = (25, 30, 40)
+
+# نقطه‌های Meter
+DOT_ON     = (40, 45, 55)
+DOT_OFF    = (110, 120, 135, 220)
+
 PAUSE_BAR  = (77, 208, 225)
 
 POINTING_ACTIVE   = (76, 175, 80)
 MOVING_ACTIVE     = (245, 166, 35)
-BTN_INACTIVE      = (120, 120, 120, 200)   # ← غیرفعال نیمه‌شفاف
+BTN_INACTIVE      = (190, 190, 190, 210)
 BTN_TEXT_INACTIVE = (60, 60, 60)
 
 CORRECT_GREEN = (76, 224, 76)
@@ -72,8 +77,8 @@ LEAF_W, LEAF_H = 60, 110
 # ====================================================================
 #  کادرهای HUD
 # ====================================================================
-# دکمه Pause چسبیده به گوشه بالا-چپ
 PAUSE_RECT = pygame.Rect(0, 0, 48, 48)
+PAUSE_MENU_RECT = pygame.Rect(0, 0, 150, 48)
 
 HUD_GAP_TOP    = 5
 HUD_RIGHT_PAD  = 20
@@ -239,7 +244,7 @@ def stop_music():
         except Exception: pass
 
 # ====================================================================
-#  فونت‌ها — بزرگ‌تر برای وضوح بیشتر
+#  فونت‌ها
 # ====================================================================
 def make_font(size, bold=True):
     for name in ("Segoe UI", "Arial", "Tahoma", "Verdana"):
@@ -247,8 +252,8 @@ def make_font(size, bold=True):
         except Exception: continue
     return pygame.font.Font(None, size)
 
-font_hud   = make_font(22, True)   # ← از 18 به 22
-font_btn   = make_font(22, True)   # ← از 20 به 22
+font_hud   = make_font(22, True)
+font_btn   = make_font(22, True)
 font_big   = make_font(44, True)
 font_mid   = make_font(28, True)
 font_menu  = make_font(22, True)
@@ -356,17 +361,46 @@ def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
     pygame.draw.line(screen, color, (cx-off, cy-off), (cx+off, cy+off), 10)
     pygame.draw.line(screen, color, (cx+off, cy-off), (cx-off, cy+off), 10)
 
+def draw_pause_button_in_game():
+    """دکمه Pause در بازی — گوشه بالا-چپ"""
+    mouse_pos = pygame.mouse.get_pos()
+    hovered = PAUSE_RECT.collidepoint(mouse_pos)
+    if hovered:
+        btn_bg = (45, 180, 235)      # آبی روشن
+        bar_color = (255, 255, 255)  # خطوط سفید
+    else:
+        btn_bg = (0, 0, 0)
+        bar_color = PAUSE_BAR
+
+    pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
+    bar_w, bar_h = 6, 24
+    gap = 10
+    total_w = bar_w * 2 + gap
+    sx = PAUSE_RECT.centerx - total_w // 2
+    sy = PAUSE_RECT.centery - bar_h // 2
+    pygame.draw.rect(screen, bar_color, (sx, sy, bar_w, bar_h))
+    pygame.draw.rect(screen, bar_color, (sx + bar_w + gap, sy, bar_w, bar_h))
+
+def draw_pause_button_in_menu():
+    """دکمه Pause در منو — با هاور سفیدتر می‌شود"""
+    mouse_pos = pygame.mouse.get_pos()
+    hovered = PAUSE_MENU_RECT.collidepoint(mouse_pos)
+    bg = (255, 255, 255) if hovered else (230, 230, 230)
+
+    pygame.draw.rect(screen, bg, PAUSE_MENU_RECT)
+    pygame.draw.rect(screen, (40, 40, 40), (PAUSE_MENU_RECT.x + 14,
+                                            PAUSE_MENU_RECT.y + 14, 5, 20))
+    pygame.draw.rect(screen, (40, 40, 40), (PAUSE_MENU_RECT.x + 24,
+                                            PAUSE_MENU_RECT.y + 14, 5, 20))
+    txt = font_menu.render("Paused", True, (40, 40, 40))
+    screen.blit(txt, (PAUSE_MENU_RECT.x + 42, PAUSE_MENU_RECT.y + 10))
+
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
     ov.fill((0, 0, 0, 120))
     screen.blit(ov, (0, 0))
 
-    paused_rect = pygame.Rect(0, 0, 150, 48)
-    pygame.draw.rect(screen, (230, 230, 230), paused_rect)
-    pygame.draw.rect(screen, (40, 40, 40), (14, 14, 5, 20))
-    pygame.draw.rect(screen, (40, 40, 40), (24, 14, 5, 20))
-    txt = font_menu.render("Paused", True, (40, 40, 40))
-    screen.blit(txt, (42, 10))
+    draw_pause_button_in_menu()
 
     if show_howto:
         draw_howto_panel()
@@ -410,10 +444,9 @@ def draw_howto_panel():
                      BACK_RECT.centery - bt.get_height() // 2))
 
 # ====================================================================
-#  رسم HUD با شفافیت
+#  رسم HUD نیمه‌شفاف
 # ====================================================================
 def draw_hud_panel(rect, fill_rgba):
-    """یک کادر نیمه‌شفاف رسم می‌کند"""
     panel = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     panel.fill(fill_rgba)
     screen.blit(panel, (rect.x, rect.y))
@@ -477,25 +510,12 @@ def draw_feedback():
 #  HUD
 # ====================================================================
 def draw_hud():
-    # ---------- دکمه Pause چسبیده به گوشه ----------
-    mouse_pos = pygame.mouse.get_pos()
-    hovered = PAUSE_RECT.collidepoint(mouse_pos)
-    btn_bg = (34, 34, 34) if hovered else BLACK
-    # کادر دکمه (پر)
-    pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
-    # دو خط Pause — وسط کادر 48×48
-    bar_w, bar_h = 6, 24
-    gap = 10
-    total_w = bar_w * 2 + gap
-    sx = PAUSE_RECT.centerx - total_w // 2
-    sy = PAUSE_RECT.centery - bar_h // 2
-    pygame.draw.rect(screen, PAUSE_BAR, (sx, sy, bar_w, bar_h))
-    pygame.draw.rect(screen, PAUSE_BAR, (sx + bar_w + gap, sy, bar_w, bar_h))
+    draw_pause_button_in_game()
 
     # ---------- TIME ----------
     draw_hud_panel(TIME_RECT, HUD_BG)
-    lbl = font_hud.render("TIME", True, WHITE)
-    val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
+    lbl = font_hud.render("TIME", True, HUD_TEXT)
+    val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
     pad = 14
     screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
@@ -503,8 +523,8 @@ def draw_hud():
 
     # ---------- SCORE ----------
     draw_hud_panel(SCORE_RECT, HUD_BG)
-    lbl = font_hud.render("SCORE", True, WHITE)
-    val = font_hud.render(str(score), True, WHITE)
+    lbl = font_hud.render("SCORE", True, HUD_TEXT)
+    val = font_hud.render(str(score), True, HUD_TEXT)
     screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height()//2))
@@ -515,19 +535,12 @@ def draw_hud():
     dot_gap = 20
     n_dots = 4
     total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
-    xN_txt = font_hud.render(f"x{multiplier}", True, WHITE)
+    xN_txt = font_hud.render(f"x{multiplier}", True, HUD_TEXT)
     right_pad = 12
     xN_w = xN_txt.get_width()
     dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w)//2 + dot_r
     for i in range(n_dots):
         dx = dots_start_x + i * dot_gap
-        # رسم دایره نیمه‌شفاف با استفاده از Surface کوچک
-        c_dot = pygame.Surface((dot_r*2, dot_r*2), pygame.SRCALPHA)
-        if i < meter:
-            c_dot.fill(DOT_ON)
-        else:
-            c_dot.fill(DOT_OFF)
-        # دایره
         circ = pygame.Surface((dot_r*2, dot_r*2), pygame.SRCALPHA)
         pygame.draw.circle(circ, DOT_ON if i < meter else DOT_OFF,
                            (dot_r, dot_r), dot_r)
@@ -536,19 +549,17 @@ def draw_hud():
                          METER_RECT.centery - xN_txt.get_height()//2))
 
     # ---------- POINTING / MOVING ----------
-    # اگر حالت فعلی pointing باشد، دکمه سبز فعال / خاکستری غیرفعال و برعکس
     if mode == "pointing":
         point_bg = POINTING_ACTIVE
         point_fg = WHITE
-        move_bg  = (120, 120, 120, 200)   # نیمه‌شفاف
-        move_fg  = (60, 60, 60)
+        move_bg  = BTN_INACTIVE
+        move_fg  = BTN_TEXT_INACTIVE
     else:
-        point_bg = (120, 120, 120, 200)
-        point_fg = (60, 60, 60)
+        point_bg = BTN_INACTIVE
+        point_fg = BTN_TEXT_INACTIVE
         move_bg  = MOVING_ACTIVE
         move_fg  = WHITE
 
-    # کادر POINTING
     if isinstance(point_bg, tuple) and len(point_bg) == 4:
         p_panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height),
                                  pygame.SRCALPHA)
@@ -560,7 +571,6 @@ def draw_hud():
     screen.blit(txt, (POINT_RECT.centerx - txt.get_width()//2,
                       POINT_RECT.centery - txt.get_height()//2))
 
-    # کادر MOVING
     if isinstance(move_bg, tuple) and len(move_bg) == 4:
         m_panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height),
                                  pygame.SRCALPHA)
@@ -703,9 +713,9 @@ while running:
         elif event.type == SFX2_WRONG:
             if not sound_muted and SFX_WRONG_2: SFX_WRONG_2.play()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if PAUSE_RECT.collidepoint(event.pos):
-                if not game_over:
-                    paused = not paused
+            if not paused and not game_over:
+                if PAUSE_RECT.collidepoint(event.pos):
+                    paused = True
                     show_howto = False
                     continue
             if paused:
@@ -714,6 +724,9 @@ while running:
                         menu_back_from_howto()
                         continue
                 else:
+                    if PAUSE_MENU_RECT.collidepoint(event.pos):
+                        paused = False
+                        continue
                     update_menu_rects()
                     for item in menu_items:
                         if item.rect.collidepoint(event.pos):
