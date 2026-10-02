@@ -1,12 +1,11 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v19 — Cleaned)
+EBB AND FLOW — PYTHON RECREATION (v20 — End Screen Redesign)
 ====================================================================
-پاک‌سازی و مرتب‌سازی نسخه ۱۹:
-  • حذف فاصله‌های اضافی بین خطوط
-  • نگه‌داشتن تمام منطق بازی (امتیاز، بونوس، مولتی‌پلایر، متر)
-  • بدون هیچ چاپ (print) روی کنسول
-  • ساختار یکدست و خوانا
+تغییرات نسخه ۲۰:
+  • صفحه پایان: به‌جای GAME OVER، دایره x Multiplier + Score Bonus
+  • امتیاز بالای صفحه (HUD SCORE) با اضافه شدن Bonus به‌روزرسانی می‌شود
+  • عدد بونوس زیر "Score Bonus" نمایش داده می‌شود
 ====================================================================
 """
 
@@ -17,7 +16,7 @@ import os
 import array
 
 # ====================================================================
-# راه‌اندازی اولیه
+# راه‌اندازی
 # ====================================================================
 pygame.init()
 pygame.font.init()
@@ -74,14 +73,14 @@ BG_FALLBACK = (10, 26, 46)
 LEAF_W, LEAF_H = 60, 110
 
 # ====================================================================
-# قوانین امتیازدهی
+# قوانین
 # ====================================================================
-START_TIME        = 60
-BASE_SCORE        = 50
-METER_MAX         = 4
-MIN_MULTIPLIER    = 1
-MAX_MULTIPLIER    = 10
-FINAL_BONUS_BASE  = 250
+START_TIME       = 60
+BASE_SCORE       = 50
+METER_MAX        = 4
+MIN_MULTIPLIER   = 1
+MAX_MULTIPLIER   = 10
+FINAL_BONUS_BASE = 250
 
 # ====================================================================
 # کادرهای HUD
@@ -151,7 +150,7 @@ def load_background():
 bg_surface = load_background()
 
 # ====================================================================
-# بارگذاری برگ‌ها
+# برگ‌ها
 # ====================================================================
 def load_leaf_image(path):
     if not os.path.exists(path):
@@ -187,7 +186,7 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-# صداهای SFX (تولیدشده)
+# SFX
 # ====================================================================
 def make_tone(freq, duration_ms, volume=0.45):
     if not AUDIO_OK:
@@ -257,6 +256,7 @@ font_big   = make_font(44, True)
 font_mid   = make_font(28, True)
 font_menu  = make_font(22, True)
 font_small = make_font(15, False)
+font_bonus = make_font(40, True)
 
 # ====================================================================
 # حالت بازی
@@ -308,7 +308,7 @@ def spawn_leaves():
         leaves.append([cx + jx - LEAF_W / 2, cy + jy - LEAF_H / 2])
 
 # ====================================================================
-# منوی Pause
+# منو
 # ====================================================================
 class MenuItem:
     def __init__(self, key, label_fn, action):
@@ -549,7 +549,6 @@ def draw_hud():
         point_bg, point_fg = BTN_INACTIVE, BTN_TEXT_INACTIVE
         move_bg, move_fg = MOVING_ACTIVE, WHITE
 
-    # POINTING
     if isinstance(point_bg, tuple) and len(point_bg) == 4:
         p_panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height), pygame.SRCALPHA)
         p_panel.fill(point_bg)
@@ -561,7 +560,6 @@ def draw_hud():
     screen.blit(txt, (POINT_RECT.centerx - txt.get_width() // 2,
                       POINT_RECT.centery - txt.get_height() // 2))
 
-    # MOVING
     if isinstance(move_bg, tuple) and len(move_bg) == 4:
         m_panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height), pygame.SRCALPHA)
         m_panel.fill(move_bg)
@@ -584,6 +582,38 @@ def draw_feedback():
         draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN)
     else:
         draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE)
+
+# ====================================================================
+# صفحه پایان (جایگزین GAME OVER)
+# ====================================================================
+def draw_end_screen():
+    # دایره x Multiplier
+    circle_cx = WINDOW_W // 2
+    circle_cy = WINDOW_H // 2 - 80
+    circle_r  = 60
+
+    pygame.draw.circle(screen, (200, 200, 200), (circle_cx, circle_cy), circle_r)
+    pygame.draw.circle(screen, (160, 160, 160), (circle_cx, circle_cy), circle_r, 3)
+
+    mult_txt = font_big.render(f"x{multiplier}", True, (30, 30, 30))
+    screen.blit(mult_txt, (circle_cx - mult_txt.get_width() // 2,
+                           circle_cy - mult_txt.get_height() // 2))
+
+    # متن "Score Bonus"
+    bonus_lbl = font_big.render("Score Bonus", True, WHITE)
+    screen.blit(bonus_lbl, (WINDOW_W // 2 - bonus_lbl.get_width() // 2,
+                            WINDOW_H // 2 + 10))
+
+    # عدد بونوس
+    bonus_num = font_bonus.render(str(final_bonus), True, WHITE)
+    screen.blit(bonus_num, (WINDOW_W // 2 - bonus_num.get_width() // 2,
+                            WINDOW_H // 2 + 70))
+
+    # راهنما
+    hint = font_small.render("Press R to restart  |  ESC to quit",
+                             True, (200, 200, 200))
+    screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
+                       WINDOW_H - 40))
 
 # ====================================================================
 # صحنه
@@ -618,24 +648,7 @@ def draw_scene():
 
     if game_over:
         draw_hud()
-
-        ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 170))
-        screen.blit(ov, (0, 0))
-
-        t1 = font_big.render("GAME OVER", True, WHITE)
-        t2 = font_mid.render(f"Score: {score}", True, WHITE)
-        t3 = font_mid.render(f"Bonus: {final_bonus}", True, WHITE)
-        t4 = font_mid.render(f"Final Score: {score + final_bonus}", True, WHITE)
-        t5 = font_hud.render(f"Multiplier: x{multiplier}", True, (200, 200, 200))
-        t6 = font_hud.render("Press R to restart  |  ESC to quit", True, (200, 200, 200))
-
-        screen.blit(t1, (WINDOW_W // 2 - t1.get_width() // 2, WINDOW_H // 2 - 125))
-        screen.blit(t2, (WINDOW_W // 2 - t2.get_width() // 2, WINDOW_H // 2 - 65))
-        screen.blit(t3, (WINDOW_W // 2 - t3.get_width() // 2, WINDOW_H // 2 - 25))
-        screen.blit(t4, (WINDOW_W // 2 - t4.get_width() // 2, WINDOW_H // 2 + 15))
-        screen.blit(t5, (WINDOW_W // 2 - t5.get_width() // 2, WINDOW_H // 2 + 55))
-        screen.blit(t6, (WINDOW_W // 2 - t6.get_width() // 2, WINDOW_H // 2 + 95))
+        draw_end_screen()
 
 # ====================================================================
 # حرکت برگ‌ها
@@ -668,10 +681,8 @@ def move_leaves():
 # ====================================================================
 def add_score():
     global score, multiplier, meter, stage
-
     score += BASE_SCORE * multiplier
     meter += 1
-
     if meter >= METER_MAX:
         meter = 0
         if multiplier < MAX_MULTIPLIER:
@@ -686,7 +697,7 @@ def penalize():
         multiplier = max(multiplier - 1, MIN_MULTIPLIER)
 
 # ====================================================================
-# بونوس پایان
+# پایان بازی: bonus محاسبه و به score اضافه می‌شود
 # ====================================================================
 def calculate_final_bonus():
     global final_bonus
@@ -694,11 +705,12 @@ def calculate_final_bonus():
     return final_bonus
 
 def finish_game():
-    global game_over
+    global game_over, score
     if game_over:
         return
     game_over = True
     calculate_final_bonus()
+    score += final_bonus     # ← بونوس به امتیاز بالا اضافه می‌شود
 
 # ====================================================================
 # بررسی پاسخ
