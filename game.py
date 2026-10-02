@@ -1,12 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v14 — Right HUD + Hide Leaves on Pause)
+EBB AND FLOW — PYTHON RECREATION (v15 — Layout Fixes)
 ====================================================================
-تغییرات نسخه ۱۴:
-  • HUD بالا راست‌چین (TIME + SCORE + METER)
-  • فاصله بین کادرهای بالا: ۵ پیکسل
-  • فاصله POINTING و MOVING: ۱۰ پیکسل
-  • هنگام Pause، برگ‌ها پنهان می‌شوند (فقط پس‌زمینه)
+تغییرات نسخه ۱۵:
+  • در منوی Pause: HUD بالا و پایین نمایش داده نمی‌شوند
+  • گزینه‌های منو: چپ‌چین
+  • HUD بالا: ۲۰ پیکسل از لبه راست فاصله
+  • HUD پایین: چسبیده به لبه پایین (بدون فاصله)
 ====================================================================
 """
 
@@ -74,27 +74,28 @@ LEAF_W, LEAF_H = 60, 110
 # ====================================================================
 PAUSE_RECT = pygame.Rect(8, 8, 44, 44)
 
-# ---- HUD بالا: راست‌چین ----
-HUD_GAP_TOP  = 5
-HUD_ITEM_H   = 60
+# ---- HUD بالا: راست‌چین با ۲۰ پیکسل فاصله از لبه راست ----
+HUD_GAP_TOP    = 5
+HUD_RIGHT_PAD  = 20
+HUD_ITEM_H     = 60
 
 TIME_W  = 140
 SCORE_W = 160
 METER_W = 140
 
-# از راست به چپ محاسبه می‌شود
-METER_RECT = pygame.Rect(WINDOW_W - METER_W, 0, METER_W, HUD_ITEM_H)
+METER_RECT = pygame.Rect(WINDOW_W - HUD_RIGHT_PAD - METER_W, 0,
+                         METER_W, HUD_ITEM_H)
 SCORE_RECT = pygame.Rect(METER_RECT.left - HUD_GAP_TOP - SCORE_W, 0,
                          SCORE_W, HUD_ITEM_H)
 TIME_RECT  = pygame.Rect(SCORE_RECT.left - HUD_GAP_TOP - TIME_W, 0,
                          TIME_W, HUD_ITEM_H)
 
-# ---- HUD پایین: وسط‌چین با فاصله ۱۰ ----
+# ---- HUD پایین: چسبیده به لبه پایین، وسط‌چین با فاصله ۱۰ ----
 HUD_GAP_BOTTOM = 10
 POINT_W = 150
 MOVE_W  = 150
 BOTTOM_H = 60
-BOTTOM_Y = WINDOW_H - BOTTOM_H - 10
+BOTTOM_Y = WINDOW_H - BOTTOM_H     # ← چسبیده به پایین
 
 TOTAL_BOTTOM_W = POINT_W + MOVE_W + HUD_GAP_BOTTOM
 BOTTOM_START_X = (WINDOW_W - TOTAL_BOTTOM_W) // 2
@@ -337,6 +338,7 @@ MENU_H_ITEM = 48
 MENU_GAP = 4
 MENU_X = (WINDOW_W - MENU_W) // 2
 MENU_Y_START = 130
+MENU_TEXT_LEFT_PAD = 30   # ← فاصله متن از لبه چپ آیتم
 
 def update_menu_rects():
     for i, item in enumerate(menu_items):
@@ -357,7 +359,7 @@ def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
 
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
-    ov.fill((0, 0, 0, 120))     # ← کمی تیره، نه زیاد
+    ov.fill((0, 0, 0, 120))
     screen.blit(ov, (0, 0))
 
     paused_rect = pygame.Rect(0, 0, 140, 44)
@@ -378,8 +380,9 @@ def draw_pause_menu():
         bg = MENU_ITEM_HOVER if item.hover else MENU_ITEM_BG
         fg = MENU_TEXT_HOVER if item.hover else MENU_TEXT
         pygame.draw.rect(screen, bg, item.rect)
+        # متن چپ‌چین
         label_txt = font_menu.render(item.get_label(), True, fg)
-        screen.blit(label_txt, (item.rect.centerx - label_txt.get_width() // 2,
+        screen.blit(label_txt, (item.rect.x + MENU_TEXT_LEFT_PAD,
                                 item.rect.centery - label_txt.get_height() // 2))
 
 def draw_howto_panel():
@@ -412,7 +415,7 @@ def draw_howto_panel():
 #  رسم صحنه
 # ====================================================================
 def draw_scene():
-    # پس‌زمینه همیشه دیده می‌شود
+    # پس‌زمینه
     if bg_surface:
         screen.blit(bg_surface, (0, 0))
     else:
@@ -434,20 +437,19 @@ def draw_scene():
                                                     ly + LEAF_H // 2))
                 screen.blit(rotated_img, rect)
 
-    # HUD
-    draw_hud()
-
-    # بازخورد
+    # HUD — فقط وقتی بازی فعاله (نه در Pause و نه Game Over)
     if not paused and not game_over:
+        draw_hud()
         draw_feedback()
 
-    # منوی Pause
+    # منوی Pause — HUD نمایش داده نمی‌شود
     if paused:
         draw_pause_menu()
         return
 
     # Game Over
     if game_over:
+        draw_hud()
         ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 170))
         screen.blit(ov, (0, 0))
@@ -503,7 +505,7 @@ def draw_hud():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height()//2))
 
-    # METER — ۴ نقطه + xN
+    # METER
     pygame.draw.rect(screen, HUD_BG, METER_RECT)
     dot_r = 7
     dot_gap = 18
