@@ -1,10 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v13 — HUD Spacing)
+EBB AND FLOW — PYTHON RECREATION (v14 — Right HUD + Hide Leaves on Pause)
 ====================================================================
-تغییرات نسخه ۱۳:
-  • TIME / SCORE / METER با فاصله ۵ پیکسل از هم
-  • POINTING / MOVING با فاصله ۱۰ پیکسل از هم
+تغییرات نسخه ۱۴:
+  • HUD بالا راست‌چین (TIME + SCORE + METER)
+  • فاصله بین کادرهای بالا: ۵ پیکسل
+  • فاصله POINTING و MOVING: ۱۰ پیکسل
+  • هنگام Pause، برگ‌ها پنهان می‌شوند (فقط پس‌زمینه)
 ====================================================================
 """
 
@@ -68,38 +70,38 @@ BG_FALLBACK = (10, 26, 46)
 LEAF_W, LEAF_H = 60, 110
 
 # ====================================================================
-#  کادرهای HUD — با فاصله‌های دلخواه
+#  کادرهای HUD
 # ====================================================================
 PAUSE_RECT = pygame.Rect(8, 8, 44, 44)
 
-# فاصلهٔ بین کادرهای بالا: ۵ پیکسل
-HUD_GAP_TOP = 5
+# ---- HUD بالا: راست‌چین ----
+HUD_GAP_TOP  = 5
+HUD_ITEM_H   = 60
 
-HUD_ITEM_H  = 60              # ارتفاع کادرهای بالا
-TIME_W      = 140
-SCORE_W     = 160
-METER_W     = 140
-TOTAL_TOP_W = TIME_W + SCORE_W + METER_W + HUD_GAP_TOP * 2
-HUD_START_X = (WINDOW_W - TOTAL_TOP_W) // 2   # وسط‌چین
+TIME_W  = 140
+SCORE_W = 160
+METER_W = 140
 
-TIME_RECT  = pygame.Rect(HUD_START_X, 0, TIME_W, HUD_ITEM_H)
-SCORE_RECT = pygame.Rect(TIME_RECT.right + HUD_GAP_TOP, 0, SCORE_W, HUD_ITEM_H)
-METER_RECT = pygame.Rect(SCORE_RECT.right + HUD_GAP_TOP, 0, METER_W, HUD_ITEM_H)
+# از راست به چپ محاسبه می‌شود
+METER_RECT = pygame.Rect(WINDOW_W - METER_W, 0, METER_W, HUD_ITEM_H)
+SCORE_RECT = pygame.Rect(METER_RECT.left - HUD_GAP_TOP - SCORE_W, 0,
+                         SCORE_W, HUD_ITEM_H)
+TIME_RECT  = pygame.Rect(SCORE_RECT.left - HUD_GAP_TOP - TIME_W, 0,
+                         TIME_W, HUD_ITEM_H)
 
-# فاصلهٔ بین POINTING و MOVING: ۱۰ پیکسل
+# ---- HUD پایین: وسط‌چین با فاصله ۱۰ ----
 HUD_GAP_BOTTOM = 10
-
 POINT_W = 150
 MOVE_W  = 150
-HUD_BOTTOM_H = 60
-HUD_BOTTOM_Y = WINDOW_H - HUD_BOTTOM_H - 10
+BOTTOM_H = 60
+BOTTOM_Y = WINDOW_H - BOTTOM_H - 10
 
 TOTAL_BOTTOM_W = POINT_W + MOVE_W + HUD_GAP_BOTTOM
 BOTTOM_START_X = (WINDOW_W - TOTAL_BOTTOM_W) // 2
 
-POINT_RECT = pygame.Rect(BOTTOM_START_X, HUD_BOTTOM_Y, POINT_W, HUD_BOTTOM_H)
+POINT_RECT = pygame.Rect(BOTTOM_START_X, BOTTOM_Y, POINT_W, BOTTOM_H)
 MOVE_RECT  = pygame.Rect(POINT_RECT.right + HUD_GAP_BOTTOM,
-                         HUD_BOTTOM_Y, MOVE_W, HUD_BOTTOM_H)
+                         BOTTOM_Y, MOVE_W, BOTTOM_H)
 
 # ====================================================================
 #  مسیرها
@@ -147,7 +149,7 @@ def load_background():
 bg_surface = load_background()
 
 # ====================================================================
-#  برگ
+#  برگ‌ها
 # ====================================================================
 def load_leaf_image(path):
     if not os.path.exists(path):
@@ -281,8 +283,7 @@ feedback_timer = 0
 def spawn_leaves():
     global leaves
     leaves = []
-    cols = 3
-    rows = 3
+    cols, rows = 3, 3
     cell_w = (WINDOW_W - 60) / cols
     cell_h = (GAME_BOTTOM - GAME_TOP - 40) / rows
     cells = [(c, r) for r in range(rows) for c in range(cols)]
@@ -308,23 +309,17 @@ class MenuItem:
         self.hover = False
     def get_label(self): return self.label_fn()
 
-def menu_resume():
-    global paused; paused = False
-def menu_restart():
-    global paused; restart_game(); paused = False
-def menu_toggle_sound():
-    global sound_muted; sound_muted = not sound_muted
+def menu_resume():   global paused; paused = False
+def menu_restart():  global paused; restart_game(); paused = False
+def menu_toggle_sound(): global sound_muted; sound_muted = not sound_muted
 def menu_toggle_music():
     global music_muted
     music_muted = not music_muted
     if music_muted: stop_music()
     else: start_music()
-def menu_quit():
-    global running; running = False
-def menu_howto():
-    global show_howto; show_howto = True
-def menu_back_from_howto():
-    global show_howto; show_howto = False
+def menu_quit():     global running; running = False
+def menu_howto():    global show_howto; show_howto = True
+def menu_back_from_howto(): global show_howto; show_howto = False
 
 menu_items = [
     MenuItem("resume",     lambda: "Resume",                          menu_resume),
@@ -362,17 +357,20 @@ def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
 
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
-    ov.fill((0, 0, 0, 180))
+    ov.fill((0, 0, 0, 120))     # ← کمی تیره، نه زیاد
     screen.blit(ov, (0, 0))
+
     paused_rect = pygame.Rect(0, 0, 140, 44)
     pygame.draw.rect(screen, (230, 230, 230), paused_rect)
     pygame.draw.rect(screen, (40, 40, 40), (14, 12, 5, 20))
     pygame.draw.rect(screen, (40, 40, 40), (24, 12, 5, 20))
     txt = font_menu.render("Paused", True, (40, 40, 40))
     screen.blit(txt, (40, 8))
+
     if show_howto:
         draw_howto_panel()
         return
+
     update_menu_rects()
     mouse_pos = pygame.mouse.get_pos()
     for item in menu_items:
@@ -414,33 +412,41 @@ def draw_howto_panel():
 #  رسم صحنه
 # ====================================================================
 def draw_scene():
+    # پس‌زمینه همیشه دیده می‌شود
     if bg_surface:
         screen.blit(bg_surface, (0, 0))
     else:
         screen.fill(BG_FALLBACK)
 
-    if mode == "pointing":
-        base_img = leaf_green_img
-        draw_dir = pointing_dir
-    else:
-        base_img = leaf_orange_img
-        draw_dir = orange_visual_dir
+    # برگ‌ها فقط وقتی بازی فعاله
+    if not paused and not game_over:
+        if mode == "pointing":
+            base_img = leaf_green_img
+            draw_dir = pointing_dir
+        else:
+            base_img = leaf_orange_img
+            draw_dir = orange_visual_dir
 
-    rotated_img = get_rotated_leaf(base_img, draw_dir) if base_img else None
+        rotated_img = get_rotated_leaf(base_img, draw_dir) if base_img else None
+        for lx, ly in leaves:
+            if rotated_img:
+                rect = rotated_img.get_rect(center=(lx + LEAF_W // 2,
+                                                    ly + LEAF_H // 2))
+                screen.blit(rotated_img, rect)
 
-    for lx, ly in leaves:
-        if rotated_img:
-            rect = rotated_img.get_rect(center=(lx + LEAF_W // 2,
-                                                ly + LEAF_H // 2))
-            screen.blit(rotated_img, rect)
-
+    # HUD
     draw_hud()
-    draw_feedback()
 
+    # بازخورد
+    if not paused and not game_over:
+        draw_feedback()
+
+    # منوی Pause
     if paused:
         draw_pause_menu()
         return
 
+    # Game Over
     if game_over:
         ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 170))
@@ -497,7 +503,7 @@ def draw_hud():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height()//2))
 
-    # METER
+    # METER — ۴ نقطه + xN
     pygame.draw.rect(screen, HUD_BG, METER_RECT)
     dot_r = 7
     dot_gap = 18
@@ -531,7 +537,7 @@ def draw_hud():
                       MOVE_RECT.centery - txt.get_height()//2))
 
 # ====================================================================
-#  حرکت
+#  حرکت برگ‌ها
 # ====================================================================
 def move_leaves():
     global leaves
