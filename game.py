@@ -1,12 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v15 — Layout Fixes)
+EBB AND FLOW — PYTHON RECREATION (v16 — HUD Polish)
 ====================================================================
-تغییرات نسخه ۱۵:
-  • در منوی Pause: HUD بالا و پایین نمایش داده نمی‌شوند
-  • گزینه‌های منو: چپ‌چین
-  • HUD بالا: ۲۰ پیکسل از لبه راست فاصله
-  • HUD پایین: چسبیده به لبه پایین (بدون فاصله)
+تغییرات نسخه ۱۶:
+  • کادرهای HUD بالا: خاکستری نیمه‌شفاف (RGBA 80,80,80,180)
+  • دکمه Pause: چسبیده به گوشه بالا-چپ، بدون فاصله
+  • POINTING / MOVING: هم‌رنگ و هم‌اندازهٔ بازی اصلی
+  • اندازهٔ فونت HUD بزرگ‌تر و واضح‌تر
 ====================================================================
 """
 
@@ -47,15 +47,15 @@ LEAF_OUTLINE      = (255, 255, 255)
 
 WHITE      = (255, 255, 255)
 BLACK      = (0, 0, 0)
-HUD_BG     = (58, 58, 58)
+HUD_BG     = (80, 80, 80, 180)     # ← خاکستری نیمه‌شفاف (RGBA)
 DOT_ON     = (255, 255, 255)
-DOT_OFF    = (85, 85, 85)
+DOT_OFF    = (120, 120, 120, 200)  # ← نقطه‌های خالی هم نیمه‌شفاف
 PAUSE_BAR  = (77, 208, 225)
 
 POINTING_ACTIVE   = (76, 175, 80)
 MOVING_ACTIVE     = (245, 166, 35)
-BTN_INACTIVE      = (170, 170, 170)
-BTN_TEXT_INACTIVE = (51, 51, 51)
+BTN_INACTIVE      = (120, 120, 120, 200)   # ← غیرفعال نیمه‌شفاف
+BTN_TEXT_INACTIVE = (60, 60, 60)
 
 CORRECT_GREEN = (76, 224, 76)
 WRONG_ORANGE  = (245, 130, 32)
@@ -72,16 +72,16 @@ LEAF_W, LEAF_H = 60, 110
 # ====================================================================
 #  کادرهای HUD
 # ====================================================================
-PAUSE_RECT = pygame.Rect(8, 8, 44, 44)
+# دکمه Pause چسبیده به گوشه بالا-چپ
+PAUSE_RECT = pygame.Rect(0, 0, 48, 48)
 
-# ---- HUD بالا: راست‌چین با ۲۰ پیکسل فاصله از لبه راست ----
 HUD_GAP_TOP    = 5
 HUD_RIGHT_PAD  = 20
 HUD_ITEM_H     = 60
 
-TIME_W  = 140
-SCORE_W = 160
-METER_W = 140
+TIME_W  = 145
+SCORE_W = 165
+METER_W = 145
 
 METER_RECT = pygame.Rect(WINDOW_W - HUD_RIGHT_PAD - METER_W, 0,
                          METER_W, HUD_ITEM_H)
@@ -90,12 +90,11 @@ SCORE_RECT = pygame.Rect(METER_RECT.left - HUD_GAP_TOP - SCORE_W, 0,
 TIME_RECT  = pygame.Rect(SCORE_RECT.left - HUD_GAP_TOP - TIME_W, 0,
                          TIME_W, HUD_ITEM_H)
 
-# ---- HUD پایین: چسبیده به لبه پایین، وسط‌چین با فاصله ۱۰ ----
 HUD_GAP_BOTTOM = 10
 POINT_W = 150
 MOVE_W  = 150
 BOTTOM_H = 60
-BOTTOM_Y = WINDOW_H - BOTTOM_H     # ← چسبیده به پایین
+BOTTOM_Y = WINDOW_H - BOTTOM_H
 
 TOTAL_BOTTOM_W = POINT_W + MOVE_W + HUD_GAP_BOTTOM
 BOTTOM_START_X = (WINDOW_W - TOTAL_BOTTOM_W) // 2
@@ -240,7 +239,7 @@ def stop_music():
         except Exception: pass
 
 # ====================================================================
-#  فونت‌ها
+#  فونت‌ها — بزرگ‌تر برای وضوح بیشتر
 # ====================================================================
 def make_font(size, bold=True):
     for name in ("Segoe UI", "Arial", "Tahoma", "Verdana"):
@@ -248,8 +247,8 @@ def make_font(size, bold=True):
         except Exception: continue
     return pygame.font.Font(None, size)
 
-font_hud   = make_font(18, True)
-font_btn   = make_font(20, True)
+font_hud   = make_font(22, True)   # ← از 18 به 22
+font_btn   = make_font(22, True)   # ← از 20 به 22
 font_big   = make_font(44, True)
 font_mid   = make_font(28, True)
 font_menu  = make_font(22, True)
@@ -338,7 +337,7 @@ MENU_H_ITEM = 48
 MENU_GAP = 4
 MENU_X = (WINDOW_W - MENU_W) // 2
 MENU_Y_START = 130
-MENU_TEXT_LEFT_PAD = 30   # ← فاصله متن از لبه چپ آیتم
+MENU_TEXT_LEFT_PAD = 30
 
 def update_menu_rects():
     for i, item in enumerate(menu_items):
@@ -362,12 +361,12 @@ def draw_pause_menu():
     ov.fill((0, 0, 0, 120))
     screen.blit(ov, (0, 0))
 
-    paused_rect = pygame.Rect(0, 0, 140, 44)
+    paused_rect = pygame.Rect(0, 0, 150, 48)
     pygame.draw.rect(screen, (230, 230, 230), paused_rect)
-    pygame.draw.rect(screen, (40, 40, 40), (14, 12, 5, 20))
-    pygame.draw.rect(screen, (40, 40, 40), (24, 12, 5, 20))
+    pygame.draw.rect(screen, (40, 40, 40), (14, 14, 5, 20))
+    pygame.draw.rect(screen, (40, 40, 40), (24, 14, 5, 20))
     txt = font_menu.render("Paused", True, (40, 40, 40))
-    screen.blit(txt, (40, 8))
+    screen.blit(txt, (42, 10))
 
     if show_howto:
         draw_howto_panel()
@@ -380,7 +379,6 @@ def draw_pause_menu():
         bg = MENU_ITEM_HOVER if item.hover else MENU_ITEM_BG
         fg = MENU_TEXT_HOVER if item.hover else MENU_TEXT
         pygame.draw.rect(screen, bg, item.rect)
-        # متن چپ‌چین
         label_txt = font_menu.render(item.get_label(), True, fg)
         screen.blit(label_txt, (item.rect.x + MENU_TEXT_LEFT_PAD,
                                 item.rect.centery - label_txt.get_height() // 2))
@@ -412,16 +410,23 @@ def draw_howto_panel():
                      BACK_RECT.centery - bt.get_height() // 2))
 
 # ====================================================================
+#  رسم HUD با شفافیت
+# ====================================================================
+def draw_hud_panel(rect, fill_rgba):
+    """یک کادر نیمه‌شفاف رسم می‌کند"""
+    panel = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    panel.fill(fill_rgba)
+    screen.blit(panel, (rect.x, rect.y))
+
+# ====================================================================
 #  رسم صحنه
 # ====================================================================
 def draw_scene():
-    # پس‌زمینه
     if bg_surface:
         screen.blit(bg_surface, (0, 0))
     else:
         screen.fill(BG_FALLBACK)
 
-    # برگ‌ها فقط وقتی بازی فعاله
     if not paused and not game_over:
         if mode == "pointing":
             base_img = leaf_green_img
@@ -437,17 +442,14 @@ def draw_scene():
                                                     ly + LEAF_H // 2))
                 screen.blit(rotated_img, rect)
 
-    # HUD — فقط وقتی بازی فعاله (نه در Pause و نه Game Over)
     if not paused and not game_over:
         draw_hud()
         draw_feedback()
 
-    # منوی Pause — HUD نمایش داده نمی‌شود
     if paused:
         draw_pause_menu()
         return
 
-    # Game Over
     if game_over:
         draw_hud()
         ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
@@ -475,66 +477,98 @@ def draw_feedback():
 #  HUD
 # ====================================================================
 def draw_hud():
-    # دکمه Pause
+    # ---------- دکمه Pause چسبیده به گوشه ----------
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     btn_bg = (34, 34, 34) if hovered else BLACK
+    # کادر دکمه (پر)
     pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
-    bar_w, bar_h = 5, 22
-    gap = 8
+    # دو خط Pause — وسط کادر 48×48
+    bar_w, bar_h = 6, 24
+    gap = 10
     total_w = bar_w * 2 + gap
     sx = PAUSE_RECT.centerx - total_w // 2
     sy = PAUSE_RECT.centery - bar_h // 2
     pygame.draw.rect(screen, PAUSE_BAR, (sx, sy, bar_w, bar_h))
     pygame.draw.rect(screen, PAUSE_BAR, (sx + bar_w + gap, sy, bar_w, bar_h))
 
-    # TIME
-    pygame.draw.rect(screen, HUD_BG, TIME_RECT)
+    # ---------- TIME ----------
+    draw_hud_panel(TIME_RECT, HUD_BG)
     lbl = font_hud.render("TIME", True, WHITE)
     val = font_hud.render(f"0:{time_left:02d}", True, WHITE)
-    pad = 12
+    pad = 14
     screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
                       TIME_RECT.centery - val.get_height()//2))
 
-    # SCORE
-    pygame.draw.rect(screen, HUD_BG, SCORE_RECT)
+    # ---------- SCORE ----------
+    draw_hud_panel(SCORE_RECT, HUD_BG)
     lbl = font_hud.render("SCORE", True, WHITE)
     val = font_hud.render(str(score), True, WHITE)
     screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height()//2))
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height()//2))
 
-    # METER
-    pygame.draw.rect(screen, HUD_BG, METER_RECT)
-    dot_r = 7
-    dot_gap = 18
+    # ---------- METER ----------
+    draw_hud_panel(METER_RECT, HUD_BG)
+    dot_r = 8
+    dot_gap = 20
     n_dots = 4
     total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
     xN_txt = font_hud.render(f"x{multiplier}", True, WHITE)
-    right_pad = 10
+    right_pad = 12
     xN_w = xN_txt.get_width()
     dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w)//2 + dot_r
     for i in range(n_dots):
         dx = dots_start_x + i * dot_gap
-        c = DOT_ON if i < meter else DOT_OFF
-        pygame.draw.circle(screen, c, (dx, METER_RECT.centery), dot_r)
+        # رسم دایره نیمه‌شفاف با استفاده از Surface کوچک
+        c_dot = pygame.Surface((dot_r*2, dot_r*2), pygame.SRCALPHA)
+        if i < meter:
+            c_dot.fill(DOT_ON)
+        else:
+            c_dot.fill(DOT_OFF)
+        # دایره
+        circ = pygame.Surface((dot_r*2, dot_r*2), pygame.SRCALPHA)
+        pygame.draw.circle(circ, DOT_ON if i < meter else DOT_OFF,
+                           (dot_r, dot_r), dot_r)
+        screen.blit(circ, (dx - dot_r, METER_RECT.centery - dot_r))
     screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
                          METER_RECT.centery - xN_txt.get_height()//2))
 
-    # POINTING / MOVING
-    p_bg = POINTING_ACTIVE if mode == "pointing" else BTN_INACTIVE
-    m_bg = MOVING_ACTIVE if mode == "moving" else BTN_INACTIVE
-    p_fg = WHITE if mode == "pointing" else BTN_TEXT_INACTIVE
-    m_fg = WHITE if mode == "moving" else BTN_TEXT_INACTIVE
+    # ---------- POINTING / MOVING ----------
+    # اگر حالت فعلی pointing باشد، دکمه سبز فعال / خاکستری غیرفعال و برعکس
+    if mode == "pointing":
+        point_bg = POINTING_ACTIVE
+        point_fg = WHITE
+        move_bg  = (120, 120, 120, 200)   # نیمه‌شفاف
+        move_fg  = (60, 60, 60)
+    else:
+        point_bg = (120, 120, 120, 200)
+        point_fg = (60, 60, 60)
+        move_bg  = MOVING_ACTIVE
+        move_fg  = WHITE
 
-    pygame.draw.rect(screen, p_bg, POINT_RECT)
-    txt = font_btn.render("POINTING", True, p_fg)
+    # کادر POINTING
+    if isinstance(point_bg, tuple) and len(point_bg) == 4:
+        p_panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height),
+                                 pygame.SRCALPHA)
+        p_panel.fill(point_bg)
+        screen.blit(p_panel, (POINT_RECT.x, POINT_RECT.y))
+    else:
+        pygame.draw.rect(screen, point_bg, POINT_RECT)
+    txt = font_btn.render("POINTING", True, point_fg)
     screen.blit(txt, (POINT_RECT.centerx - txt.get_width()//2,
                       POINT_RECT.centery - txt.get_height()//2))
 
-    pygame.draw.rect(screen, m_bg, MOVE_RECT)
-    txt = font_btn.render("MOVING", True, m_fg)
+    # کادر MOVING
+    if isinstance(move_bg, tuple) and len(move_bg) == 4:
+        m_panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height),
+                                 pygame.SRCALPHA)
+        m_panel.fill(move_bg)
+        screen.blit(m_panel, (MOVE_RECT.x, MOVE_RECT.y))
+    else:
+        pygame.draw.rect(screen, move_bg, MOVE_RECT)
+    txt = font_btn.render("MOVING", True, move_fg)
     screen.blit(txt, (MOVE_RECT.centerx - txt.get_width()//2,
                       MOVE_RECT.centery - txt.get_height()//2))
 
