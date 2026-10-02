@@ -1,11 +1,9 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v17 — Light HUD + Pause Hover)
+EBB AND FLOW — PYTHON RECREATION (v18 — Inactive Button Text = Black)
 ====================================================================
-تغییرات نسخه ۱۷:
-  • HUD بالا: پس‌زمینه آبی-خاکستری روشن، متن تیره
-  • دکمه Pause در بازی: با هاور متن/خطوط سفید + پس‌زمینه آبی
-  • دکمه Pause در منو: با هاور پس‌زمینه سفیدتر (230 → 255)
+تغییرات نسخه ۱۸:
+  • متن POINTING / MOVING در حالت غیرفعال مشکی است
 ====================================================================
 """
 
@@ -47,11 +45,10 @@ LEAF_OUTLINE      = (255, 255, 255)
 WHITE      = (255, 255, 255)
 BLACK      = (0, 0, 0)
 
-# HUD بالا: آبی-خاکستری روشن (مطابق اسکرین‌شات)، متن تیره
+# HUD بالا: آبی-خاکستری روشن، متن تیره
 HUD_BG     = (150, 160, 175, 235)
 HUD_TEXT   = (25, 30, 40)
 
-# نقطه‌های Meter
 DOT_ON     = (40, 45, 55)
 DOT_OFF    = (110, 120, 135, 220)
 
@@ -60,7 +57,7 @@ PAUSE_BAR  = (77, 208, 225)
 POINTING_ACTIVE   = (76, 175, 80)
 MOVING_ACTIVE     = (245, 166, 35)
 BTN_INACTIVE      = (190, 190, 190, 210)
-BTN_TEXT_INACTIVE = (60, 60, 60)
+BTN_TEXT_INACTIVE = (0, 0, 0)      # ← مشکی
 
 CORRECT_GREEN = (76, 224, 76)
 WRONG_ORANGE  = (245, 130, 32)
@@ -362,12 +359,11 @@ def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
     pygame.draw.line(screen, color, (cx+off, cy-off), (cx-off, cy+off), 10)
 
 def draw_pause_button_in_game():
-    """دکمه Pause در بازی — گوشه بالا-چپ"""
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_RECT.collidepoint(mouse_pos)
     if hovered:
-        btn_bg = (45, 180, 235)      # آبی روشن
-        bar_color = (255, 255, 255)  # خطوط سفید
+        btn_bg = (45, 180, 235)
+        bar_color = (255, 255, 255)
     else:
         btn_bg = (0, 0, 0)
         bar_color = PAUSE_BAR
@@ -382,11 +378,9 @@ def draw_pause_button_in_game():
     pygame.draw.rect(screen, bar_color, (sx + bar_w + gap, sy, bar_w, bar_h))
 
 def draw_pause_button_in_menu():
-    """دکمه Pause در منو — با هاور سفیدتر می‌شود"""
     mouse_pos = pygame.mouse.get_pos()
     hovered = PAUSE_MENU_RECT.collidepoint(mouse_pos)
     bg = (255, 255, 255) if hovered else (230, 230, 230)
-
     pygame.draw.rect(screen, bg, PAUSE_MENU_RECT)
     pygame.draw.rect(screen, (40, 40, 40), (PAUSE_MENU_RECT.x + 14,
                                             PAUSE_MENU_RECT.y + 14, 5, 20))
@@ -549,6 +543,7 @@ def draw_hud():
                          METER_RECT.centery - xN_txt.get_height()//2))
 
     # ---------- POINTING / MOVING ----------
+    # متن غیرفعال حالا مشکی است
     if mode == "pointing":
         point_bg = POINTING_ACTIVE
         point_fg = WHITE
@@ -560,6 +555,7 @@ def draw_hud():
         move_bg  = MOVING_ACTIVE
         move_fg  = WHITE
 
+    # POINTING
     if isinstance(point_bg, tuple) and len(point_bg) == 4:
         p_panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height),
                                  pygame.SRCALPHA)
@@ -571,6 +567,7 @@ def draw_hud():
     screen.blit(txt, (POINT_RECT.centerx - txt.get_width()//2,
                       POINT_RECT.centery - txt.get_height()//2))
 
+    # MOVING
     if isinstance(move_bg, tuple) and len(move_bg) == 4:
         m_panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height),
                                  pygame.SRCALPHA)
