@@ -1,11 +1,13 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v20 — End Screen Redesign)
+EBB AND FLOW — PYTHON RECREATION (v21 — Clean End Screen)
 ====================================================================
-تغییرات نسخه ۲۰:
-  • صفحه پایان: به‌جای GAME OVER، دایره x Multiplier + Score Bonus
-  • امتیاز بالای صفحه (HUD SCORE) با اضافه شدن Bonus به‌روزرسانی می‌شود
-  • عدد بونوس زیر "Score Bonus" نمایش داده می‌شود
+تغییرات نسخه ۲۱ (بر پایه v20):
+  • در صفحه پایان:
+      - دکمه Pause نمایش داده نمی‌شود
+      - HUD پایین (POINTING / MOVING) نمایش داده نمی‌شود
+      - موسیقی آبشار قطع می‌شود
+  • بقیه موارد مثل v20 (دایره x Multiplier + Score Bonus + HUD بالا)
 ====================================================================
 """
 
@@ -121,7 +123,7 @@ LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
 MUSIC_PATH      = r"C:\Users\ASUS\Downloads\MUSIC.mp3"
 
 # ====================================================================
-# بارگذاری پس‌زمینه
+# پس‌زمینه
 # ====================================================================
 def find_bg():
     for path in BG_CANDIDATES:
@@ -572,6 +574,47 @@ def draw_hud():
                       MOVE_RECT.centery - txt.get_height() // 2))
 
 # ====================================================================
+# HUD بالا (بدون دکمه Pause) — فقط برای صفحه پایان
+# ====================================================================
+def draw_hud_top_only():
+    # TIME
+    draw_hud_panel(TIME_RECT, HUD_BG)
+    lbl = font_hud.render("TIME", True, HUD_TEXT)
+    val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
+    pad = 14
+    screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height() // 2))
+    screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
+                      TIME_RECT.centery - val.get_height() // 2))
+
+    # SCORE
+    draw_hud_panel(SCORE_RECT, HUD_BG)
+    lbl = font_hud.render("SCORE", True, HUD_TEXT)
+    val = font_hud.render(str(score), True, HUD_TEXT)
+    screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
+    screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
+                      SCORE_RECT.centery - val.get_height() // 2))
+
+    # METER
+    draw_hud_panel(METER_RECT, HUD_BG)
+    dot_r, dot_gap = 8, 20
+    n_dots = METER_MAX
+    total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
+    xN_txt = font_hud.render(f"x{multiplier}", True, HUD_TEXT)
+    right_pad = 12
+    xN_w = xN_txt.get_width()
+    dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w) // 2 + dot_r
+
+    for i in range(n_dots):
+        dx = dots_start_x + i * dot_gap
+        circ = pygame.Surface((dot_r * 2, dot_r * 2), pygame.SRCALPHA)
+        color = DOT_ON if i < meter else DOT_OFF
+        pygame.draw.circle(circ, color, (dot_r, dot_r), dot_r)
+        screen.blit(circ, (dx - dot_r, METER_RECT.centery - dot_r))
+
+    screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
+                         METER_RECT.centery - xN_txt.get_height() // 2))
+
+# ====================================================================
 # Feedback
 # ====================================================================
 def draw_feedback():
@@ -584,7 +627,7 @@ def draw_feedback():
         draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE)
 
 # ====================================================================
-# صفحه پایان (جایگزین GAME OVER)
+# صفحه پایان
 # ====================================================================
 def draw_end_screen():
     # دایره x Multiplier
@@ -599,7 +642,7 @@ def draw_end_screen():
     screen.blit(mult_txt, (circle_cx - mult_txt.get_width() // 2,
                            circle_cy - mult_txt.get_height() // 2))
 
-    # متن "Score Bonus"
+    # متن Score Bonus
     bonus_lbl = font_big.render("Score Bonus", True, WHITE)
     screen.blit(bonus_lbl, (WINDOW_W // 2 - bonus_lbl.get_width() // 2,
                             WINDOW_H // 2 + 10))
@@ -624,6 +667,7 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
+    # برگ‌ها فقط وقتی بازی جریانه
     if not paused and not game_over:
         if mode == "pointing":
             base_img = leaf_green_img
@@ -638,16 +682,19 @@ def draw_scene():
                 rect = rotated_img.get_rect(center=(lx + LEAF_W // 2, ly + LEAF_H // 2))
                 screen.blit(rotated_img, rect)
 
+    # در حال بازی: HUD کامل + feedback
     if not paused and not game_over:
         draw_hud()
         draw_feedback()
 
+    # در منوی Pause
     if paused:
         draw_pause_menu()
         return
 
+    # در صفحه پایان: فقط HUD بالا، بدون دکمه Pause و بدون HUD پایین
     if game_over:
-        draw_hud()
+        draw_hud_top_only()
         draw_end_screen()
 
 # ====================================================================
@@ -697,7 +744,7 @@ def penalize():
         multiplier = max(multiplier - 1, MIN_MULTIPLIER)
 
 # ====================================================================
-# پایان بازی: bonus محاسبه و به score اضافه می‌شود
+# پایان بازی
 # ====================================================================
 def calculate_final_bonus():
     global final_bonus
@@ -710,7 +757,8 @@ def finish_game():
         return
     game_over = True
     calculate_final_bonus()
-    score += final_bonus     # ← بونوس به امتیاز بالا اضافه می‌شود
+    score += final_bonus
+    stop_music()          # ← موسیقی آبشار قطع می‌شود
 
 # ====================================================================
 # بررسی پاسخ
@@ -772,6 +820,10 @@ def restart_game():
     feedback_type = None
 
     spawn_leaves()
+
+    # موسیقی از سر گرفته می‌شود
+    if not music_muted:
+        start_music()
 
 # ====================================================================
 # رویدادها
