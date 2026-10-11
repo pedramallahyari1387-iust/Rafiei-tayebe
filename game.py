@@ -1,13 +1,10 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v21 — Clean End Screen)
+EBB AND FLOW — PYTHON RECREATION (v22.1 — آیکن‌های منوی Pause)
 ====================================================================
-تغییرات نسخه ۲۱ (بر پایه v20):
-  • در صفحه پایان:
-      - دکمه Pause نمایش داده نمی‌شود
-      - HUD پایین (POINTING / MOVING) نمایش داده نمی‌شود
-      - موسیقی آبشار قطع می‌شود
-  • بقیه موارد مثل v20 (دایره x Multiplier + Score Bonus + HUD بالا)
+فقط آیکن‌های منوی Pause اضافه شدند.
+بک‌گراند سفید آیکن‌ها حذف می‌شود (روش alpha).
+بقیه چیزها دقیقاً مثل v22.
 ====================================================================
 """
 
@@ -121,6 +118,77 @@ BG_CANDIDATES = [
 LEAF_GREEN_IMG  = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_green.png"
 LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
 MUSIC_PATH      = r"C:\Users\ASUS\Downloads\MUSIC.mp3"
+
+# ====================================================================
+# [NEW] آیکن‌های منوی Pause
+# ====================================================================
+ICON_DIR = r"C:\Users\ASUS\Documents\GitHub\Rafiei-tayebe\out\sprites_shared_assets"
+
+ICON_PATHS = {
+    "resume":  os.path.join(ICON_DIR, "sharedAssets_resumeSprite_7302.png"),
+    "restart": os.path.join(ICON_DIR, "sharedAssets_restartSprite_6898.png"),
+    "quit":    os.path.join(ICON_DIR, "sharedAssets_quitSprite_6891.png"),
+    "help":    os.path.join(ICON_DIR, "sharedAssets_helpSprite_754.png"),
+    "sound":   os.path.join(ICON_DIR, "Soundfx_iconSprite_6307.png"),
+    "music":   os.path.join(ICON_DIR, "Music_iconSprite_2749.png"),
+    "nosnd":   os.path.join(ICON_DIR, "noSoundfx_iconSprite_3867.png"),
+    "nomus":   os.path.join(ICON_DIR, "noMusic_iconSprite_6361.png"),
+}
+
+def load_icon_no_bg(path, size=(28, 28), tolerance=40):
+    """
+    آیکن را لود می‌کند و پس‌زمینه‌اش را با تشخیص هوشمند حذف می‌کند.
+    رنگ گوشهٔ تصویر را به‌عنوان «بک‌گراند» در نظر می‌گیرد و همهٔ
+    پیکسل‌های نزدیک به آن را شفاف می‌کند.
+    آستانه: tolerance (هرچه بیشتر، حذف گسترده‌تر).
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        img = pygame.image.load(path).convert_alpha()
+    except Exception:
+        return None
+
+    w, h = img.get_size()
+
+    # تشخیص رنگ بک‌گراند از گوشه‌ها
+    corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
+    bg_samples = []
+    for c in corners:
+        r, g, b, a = img.get_at(c)
+        if a > 200:      # فقط نمونه‌های مات
+            bg_samples.append((r, g, b))
+
+    if not bg_samples:
+        # فایل احتمالاً آلفای واقعی دارد — مستقیم استفاده کن
+        return pygame.transform.smoothscale(img, size)
+
+    # میانگین رنگ بک‌گراند
+    br = sum(c[0] for c in bg_samples) // len(bg_samples)
+    bg_c = sum(c[1] for c in bg_samples) // len(bg_samples)
+    bb = sum(c[2] for c in bg_samples) // len(bg_samples)
+
+    # حالا همه پیکسل‌های نزدیک به این رنگ رو شفاف کن
+    for x in range(w):
+        for y in range(h):
+            r, g, b, a = img.get_at((x, y))
+            dr = abs(r - br)
+            dg = abs(g - bg_c)
+            db = abs(b - bb)
+
+            if dr + dg + db < tolerance:
+                # پس‌زمینه — کاملاً شفاف
+                img.set_at((x, y), (0, 0, 0, 0))
+            elif dr + dg + db < tolerance * 2:
+                # نزدیک به پس‌زمینه — نیمه‌شفاف برای smooth edges
+                alpha = int(255 * (dr + dg + db - tolerance) / tolerance)
+                img.set_at((x, y), (r, g, b, max(0, min(255, alpha))))
+
+    return pygame.transform.smoothscale(img, size)
+
+ICONS = {}
+for key, path in ICON_PATHS.items():
+    ICONS[key] = load_icon_no_bg(path, size=(28, 28))
 
 # ====================================================================
 # پس‌زمینه
@@ -313,10 +381,11 @@ def spawn_leaves():
 # منو
 # ====================================================================
 class MenuItem:
-    def __init__(self, key, label_fn, action):
+    def __init__(self, key, label_fn, action, icon_key=None):
         self.key = key
         self.label_fn = label_fn
         self.action = action
+        self.icon_key = icon_key        # [NEW]
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.hover = False
     def get_label(self):
@@ -362,13 +431,14 @@ def label_music():  return "Music Muted" if music_muted else "Mute Music"
 def label_quit():   return "Quit"
 def label_howto():  return "How To Play"
 
+# [NEW] اضافه شدن icon_key به آیتم‌ها
 menu_items = [
-    MenuItem("resume",     label_resume,  menu_resume),
-    MenuItem("restart",    label_restart, menu_restart),
-    MenuItem("mute_sound", label_sound,   menu_toggle_sound),
-    MenuItem("mute_music", label_music,   menu_toggle_music),
-    MenuItem("quit",       label_quit,    menu_quit),
-    MenuItem("howto",      label_howto,   menu_howto),
+    MenuItem("resume",     label_resume,  menu_resume,        "resume"),
+    MenuItem("restart",    label_restart, menu_restart,       "restart"),
+    MenuItem("mute_sound", label_sound,   menu_toggle_sound,  "sound"),
+    MenuItem("mute_music", label_music,   menu_toggle_music,  "music"),
+    MenuItem("quit",       label_quit,    menu_quit,          "quit"),
+    MenuItem("howto",      label_howto,   menu_howto,         "help"),
 ]
 
 MENU_W       = 380
@@ -376,7 +446,10 @@ MENU_H_ITEM  = 48
 MENU_GAP     = 4
 MENU_X       = (WINDOW_W - MENU_W) // 2
 MENU_Y_START = 130
-MENU_TEXT_LEFT_PAD = 30
+
+# [NEW] چون آیکن اضافه شده، متن جابه‌جا شد
+MENU_TEXT_LEFT_PAD = 56
+MENU_ICON_PAD      = 14
 
 def update_menu_rects():
     for i, item in enumerate(menu_items):
@@ -384,6 +457,16 @@ def update_menu_rects():
         item.rect = pygame.Rect(MENU_X, y, MENU_W, MENU_H_ITEM)
 
 BACK_RECT = pygame.Rect(WINDOW_W // 2 - 80, WINDOW_H - 90, 160, 44)
+
+# ====================================================================
+# [NEW] گرفتن آیکن مناسب برای هر گزینه
+# ====================================================================
+def get_icon_for(item):
+    if item.key == "mute_sound":
+        return ICONS.get("nosnd") if sound_muted else ICONS.get("sound")
+    if item.key == "mute_music":
+        return ICONS.get("nomus") if music_muted else ICONS.get("music")
+    return ICONS.get(item.icon_key)
 
 # ====================================================================
 # بازخورد بصری
@@ -433,7 +516,7 @@ def draw_pause_button_in_menu():
     screen.blit(txt, (PAUSE_MENU_RECT.x + 42, PAUSE_MENU_RECT.y + 10))
 
 # ====================================================================
-# منوی Pause
+# منوی Pause — [NEW] با آیکن
 # ====================================================================
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
@@ -454,6 +537,13 @@ def draw_pause_menu():
         bg = MENU_ITEM_HOVER if item.hover else MENU_ITEM_BG
         fg = MENU_TEXT_HOVER if item.hover else MENU_TEXT
         pygame.draw.rect(screen, bg, item.rect)
+
+        # [NEW] نمایش آیکن کنار متن
+        ic = get_icon_for(item)
+        if ic:
+            icon_rect = ic.get_rect(
+                midleft=(item.rect.x + MENU_ICON_PAD, item.rect.centery))
+            screen.blit(ic, icon_rect)
 
         label_txt = font_menu.render(item.get_label(), True, fg)
         screen.blit(label_txt, (
@@ -506,7 +596,6 @@ def draw_hud_panel(rect, fill_rgba):
 def draw_hud():
     draw_pause_button_in_game()
 
-    # TIME
     draw_hud_panel(TIME_RECT, HUD_BG)
     lbl = font_hud.render("TIME", True, HUD_TEXT)
     val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
@@ -515,7 +604,6 @@ def draw_hud():
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
                       TIME_RECT.centery - val.get_height() // 2))
 
-    # SCORE
     draw_hud_panel(SCORE_RECT, HUD_BG)
     lbl = font_hud.render("SCORE", True, HUD_TEXT)
     val = font_hud.render(str(score), True, HUD_TEXT)
@@ -523,7 +611,6 @@ def draw_hud():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
 
-    # METER
     draw_hud_panel(METER_RECT, HUD_BG)
     dot_r, dot_gap = 8, 20
     n_dots = METER_MAX
@@ -543,7 +630,6 @@ def draw_hud():
     screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
                          METER_RECT.centery - xN_txt.get_height() // 2))
 
-    # POINTING / MOVING
     if mode == "pointing":
         point_bg, point_fg = POINTING_ACTIVE, WHITE
         move_bg, move_fg = BTN_INACTIVE, BTN_TEXT_INACTIVE
@@ -573,11 +659,7 @@ def draw_hud():
     screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
                       MOVE_RECT.centery - txt.get_height() // 2))
 
-# ====================================================================
-# HUD بالا (بدون دکمه Pause) — فقط برای صفحه پایان
-# ====================================================================
 def draw_hud_top_only():
-    # TIME
     draw_hud_panel(TIME_RECT, HUD_BG)
     lbl = font_hud.render("TIME", True, HUD_TEXT)
     val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
@@ -586,7 +668,6 @@ def draw_hud_top_only():
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
                       TIME_RECT.centery - val.get_height() // 2))
 
-    # SCORE
     draw_hud_panel(SCORE_RECT, HUD_BG)
     lbl = font_hud.render("SCORE", True, HUD_TEXT)
     val = font_hud.render(str(score), True, HUD_TEXT)
@@ -594,7 +675,6 @@ def draw_hud_top_only():
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
 
-    # METER
     draw_hud_panel(METER_RECT, HUD_BG)
     dot_r, dot_gap = 8, 20
     n_dots = METER_MAX
@@ -630,7 +710,6 @@ def draw_feedback():
 # صفحه پایان
 # ====================================================================
 def draw_end_screen():
-    # دایره x Multiplier
     circle_cx = WINDOW_W // 2
     circle_cy = WINDOW_H // 2 - 80
     circle_r  = 60
@@ -642,17 +721,14 @@ def draw_end_screen():
     screen.blit(mult_txt, (circle_cx - mult_txt.get_width() // 2,
                            circle_cy - mult_txt.get_height() // 2))
 
-    # متن Score Bonus
     bonus_lbl = font_big.render("Score Bonus", True, WHITE)
     screen.blit(bonus_lbl, (WINDOW_W // 2 - bonus_lbl.get_width() // 2,
                             WINDOW_H // 2 + 10))
 
-    # عدد بونوس
     bonus_num = font_bonus.render(str(final_bonus), True, WHITE)
     screen.blit(bonus_num, (WINDOW_W // 2 - bonus_num.get_width() // 2,
                             WINDOW_H // 2 + 70))
 
-    # راهنما
     hint = font_small.render("Press R to restart  |  ESC to quit",
                              True, (200, 200, 200))
     screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
@@ -667,7 +743,6 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
-    # برگ‌ها فقط وقتی بازی جریانه
     if not paused and not game_over:
         if mode == "pointing":
             base_img = leaf_green_img
@@ -682,17 +757,14 @@ def draw_scene():
                 rect = rotated_img.get_rect(center=(lx + LEAF_W // 2, ly + LEAF_H // 2))
                 screen.blit(rotated_img, rect)
 
-    # در حال بازی: HUD کامل + feedback
     if not paused and not game_over:
         draw_hud()
         draw_feedback()
 
-    # در منوی Pause
     if paused:
         draw_pause_menu()
         return
 
-    # در صفحه پایان: فقط HUD بالا، بدون دکمه Pause و بدون HUD پایین
     if game_over:
         draw_hud_top_only()
         draw_end_screen()
@@ -758,7 +830,7 @@ def finish_game():
     game_over = True
     calculate_final_bonus()
     score += final_bonus
-    stop_music()          # ← موسیقی آبشار قطع می‌شود
+    stop_music()
 
 # ====================================================================
 # بررسی پاسخ
@@ -821,7 +893,6 @@ def restart_game():
 
     spawn_leaves()
 
-    # موسیقی از سر گرفته می‌شود
     if not music_muted:
         start_music()
 
