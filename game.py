@@ -1,15 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v23 — Sound System Fixed)
+EBB AND FLOW — PYTHON RECREATION (v25)
 ====================================================================
-بر پایه v22 با آیکن‌های منوی Pause.
-
-اصلاحات:
-  • موسیقی آبشار بلندتر (0.85)
-  • صدای wrong بلندتر (1.0)
-  • وقتی multiplier ارتقا می‌ره، فقط صدای ارتقا پخش می‌شه
-  • windBlow کامل پخش می‌شه، بعد gameStart
-  • عدد بونوس وسط صفحه ثابت، فقط HUD بالا انیمیشن داره
+اضافه شده در این نسخه:
+  • شمارش معکوس 3-2-1 با دایره آبی
+  • windBlow بلافاصله بعد از شمارش، بعد gameStart + موسیقی با تأخیر
+  • تأخیر بین wind و gameStart = 3 ثانیه (به‌جای 4)
+  • Pause در ثانیهٔ اول باعث قطع wind و کنسل شدن شروع نمی‌شه
 ====================================================================
 """
 
@@ -50,6 +47,8 @@ LEAF_OUTLINE      = (255, 255, 255)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
+COUNTDOWN_BLUE = (36, 152, 178)
+
 HUD_BG   = (150, 160, 175, 235)
 HUD_TEXT = (25, 30, 40)
 
@@ -62,6 +61,9 @@ POINTING_ACTIVE   = (76, 175, 80)
 MOVING_ACTIVE     = (245, 166, 35)
 BTN_INACTIVE      = (190, 190, 190, 210)
 BTN_TEXT_INACTIVE = (0, 0, 0)
+
+COUNTDOWN_BTN_BG = (110, 120, 135, 210)
+COUNTDOWN_BTN_FG = WHITE
 
 CORRECT_GREEN = (76, 224, 76)
 WRONG_ORANGE  = (245, 130, 32)
@@ -84,6 +86,10 @@ METER_MAX        = 4
 MIN_MULTIPLIER   = 1
 MAX_MULTIPLIER   = 10
 FINAL_BONUS_BASE = 250
+
+# ---- شمارش معکوس شروع ----
+COUNTDOWN_START = 3
+COUNTDOWN_MS    = 1000
 
 # ====================================================================
 # کادرهای HUD
@@ -149,7 +155,6 @@ def load_icon_no_bg(path, size=(28, 28), tolerance=40):
         return None
 
     w, h = img.get_size()
-
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
     bg_samples = []
     for c in corners:
@@ -167,9 +172,7 @@ def load_icon_no_bg(path, size=(28, 28), tolerance=40):
     for x in range(w):
         for y in range(h):
             r, g, b, a = img.get_at((x, y))
-            dr = abs(r - br)
-            dg = abs(g - bg_c)
-            db = abs(b - bb)
+            dr, dg, db = abs(r - br), abs(g - bg_c), abs(b - bb)
             total = dr + dg + db
 
             if total < tolerance:
@@ -267,6 +270,7 @@ SOUND_FILES = {
     "gameStart":             "shared_gameStart.wav",
     "gameEnd":               "shared_gameEnd.wav",
     "timer":                 "shared_timer.wav",
+    "countdown":             "shared_countdown.wav",
     "windBlow":              "scene_windBlow.wav",
     "WaterStreamActualLoop": "scene_WaterStreamActualLoop.wav",
 }
@@ -300,7 +304,7 @@ def stop_sfx(name):
             pass
 
 # ====================================================================
-# موسیقی پس‌زمینه
+# موسیقی
 # ====================================================================
 MUSIC_VOLUME = 0.85
 music_playing = False
@@ -343,6 +347,7 @@ font_mid   = make_font(28, True)
 font_menu  = make_font(22, True)
 font_small = make_font(15, False)
 font_bonus = make_font(40, True)
+font_countdown = make_font(72, True)
 
 # ====================================================================
 # حالت بازی
@@ -364,6 +369,11 @@ game_over    = False
 paused       = False
 show_howto   = False
 
+countdown_active  = True
+countdown_number  = COUNTDOWN_START
+countdown_elapsed = 0
+countdown_last_played = None
+
 NUM_LEAVES = 7
 leaves = []
 
@@ -378,28 +388,40 @@ bonus_loop_started = False
 bonus_count_started = False
 bonus_end_played = False
 
-# ---- امتیاز پایه قبل از بونوس (برای انیمیشن) ----
 score_without_bonus = 0
+
+# ---- زمان‌بندی صداهای شروع ----
+WIND_START_MS = 3000     # تأخیر بین wind و gameStart/موسیقی
+pending_gamestart_at = None
+pending_music_at = None
 
 # ====================================================================
 # رویدادها
 # ====================================================================
-TIMER_EVENT     = pygame.USEREVENT + 1
-GAMESTART_EVENT = pygame.USEREVENT + 2
-
+TIMER_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(TIMER_EVENT, 1000)
 
-# طول صدای باد = 4 ثانیه
-WIND_BLOW_DURATION_MS = 4000
-
+# ====================================================================
+# توابع صوتی شروع
+# ====================================================================
 def start_game_audio():
-    """اول windBlow کامل، بعد gameStart، موسیقی همون اول."""
+    """شروع windBlow فوری + زمان‌بندی gameStart و موسیقی با تأخیر."""
+    global pending_gamestart_at, pending_music_at
     if sound_muted:
         return
     play_sfx("windBlow", 0.85)
-    start_music()
-    # gameStart با 4 ثانیه تأخیر
-    pygame.time.set_timer(GAMESTART_EVENT, WIND_BLOW_DURATION_MS, loops=1)
+    now = pygame.time.get_ticks()
+    pending_gamestart_at = now + WIND_START_MS
+    pending_music_at = now + WIND_START_MS
+
+
+def cancel_startup_audio():
+    """قطع صداهای شروع و کنسل زمان‌بندی‌ها (برای pause)."""
+    global pending_gamestart_at, pending_music_at
+    stop_sfx("windBlow")
+    stop_music()
+    pending_gamestart_at = None
+    pending_music_at = None
 
 
 def stop_all_audio():
@@ -536,7 +558,7 @@ def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
 # ====================================================================
 # دکمه Pause
 # ====================================================================
-def draw_pause_button_in_game():
+def draw_pause_button_in_game(active=True):
     hovered = PAUSE_RECT.collidepoint(pygame.mouse.get_pos())
     btn_bg = (45, 180, 235) if hovered else BLACK
     bar_color = WHITE if hovered else PAUSE_BAR
@@ -641,12 +663,16 @@ def draw_hud_panel(rect, fill_rgba):
     panel.fill(fill_rgba)
     screen.blit(panel, (rect.x, rect.y))
 
-def draw_hud():
-    draw_pause_button_in_game()
+def draw_hud_top_only(time_override=None, score_override=None,
+                      meter_override=None, multiplier_override=None):
+    shown_time  = time_left if time_override is None else time_override
+    shown_score = score if score_override is None else score_override
+    shown_meter = meter if meter_override is None else meter_override
+    shown_mult  = multiplier if multiplier_override is None else multiplier_override
 
     draw_hud_panel(TIME_RECT, HUD_BG)
     lbl = font_hud.render("TIME", True, HUD_TEXT)
-    val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
+    val = font_hud.render(f"0:{shown_time:02d}", True, HUD_TEXT)
     pad = 14
     screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height() // 2))
     screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
@@ -654,7 +680,7 @@ def draw_hud():
 
     draw_hud_panel(SCORE_RECT, HUD_BG)
     lbl = font_hud.render("SCORE", True, HUD_TEXT)
-    val = font_hud.render(str(score), True, HUD_TEXT)
+    val = font_hud.render(str(shown_score), True, HUD_TEXT)
     screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
@@ -663,7 +689,7 @@ def draw_hud():
     dot_r, dot_gap = 8, 20
     n_dots = METER_MAX
     total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
-    xN_txt = font_hud.render(f"x{multiplier}", True, HUD_TEXT)
+    xN_txt = font_hud.render(f"x{shown_mult}", True, HUD_TEXT)
     right_pad = 12
     xN_w = xN_txt.get_width()
     dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w) // 2 + dot_r
@@ -671,13 +697,14 @@ def draw_hud():
     for i in range(n_dots):
         dx = dots_start_x + i * dot_gap
         circ = pygame.Surface((dot_r * 2, dot_r * 2), pygame.SRCALPHA)
-        color = DOT_ON if i < meter else DOT_OFF
+        color = DOT_ON if i < shown_meter else DOT_OFF
         pygame.draw.circle(circ, color, (dot_r, dot_r), dot_r)
         screen.blit(circ, (dx - dot_r, METER_RECT.centery - dot_r))
 
     screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
                          METER_RECT.centery - xN_txt.get_height() // 2))
 
+def draw_hud_bottom():
     if mode == "pointing":
         point_bg, point_fg = POINTING_ACTIVE, WHITE
         move_bg, move_fg = BTN_INACTIVE, BTN_TEXT_INACTIVE
@@ -707,43 +734,20 @@ def draw_hud():
     screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
                       MOVE_RECT.centery - txt.get_height() // 2))
 
-def draw_hud_top_only(score_display=None):
-    """HUD بالا — بدون دکمه Pause. score_display اگه داده بشه، جایگزین score می‌شه."""
-    shown_score = score if score_display is None else score_display
+def draw_hud_bottom_countdown():
+    for rect, label in ((POINT_RECT, "POINTING"), (MOVE_RECT, "MOVING")):
+        panel = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        panel.fill(COUNTDOWN_BTN_BG)
+        screen.blit(panel, (rect.x, rect.y))
 
-    draw_hud_panel(TIME_RECT, HUD_BG)
-    lbl = font_hud.render("TIME", True, HUD_TEXT)
-    val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
-    pad = 14
-    screen.blit(lbl, (TIME_RECT.x + pad, TIME_RECT.centery - lbl.get_height() // 2))
-    screen.blit(val, (TIME_RECT.right - val.get_width() - pad,
-                      TIME_RECT.centery - val.get_height() // 2))
+        txt = font_btn.render(label, True, COUNTDOWN_BTN_FG)
+        screen.blit(txt, (rect.centerx - txt.get_width() // 2,
+                          rect.centery - txt.get_height() // 2))
 
-    draw_hud_panel(SCORE_RECT, HUD_BG)
-    lbl = font_hud.render("SCORE", True, HUD_TEXT)
-    val = font_hud.render(str(shown_score), True, HUD_TEXT)
-    screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
-    screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
-                      SCORE_RECT.centery - val.get_height() // 2))
-
-    draw_hud_panel(METER_RECT, HUD_BG)
-    dot_r, dot_gap = 8, 20
-    n_dots = METER_MAX
-    total_dots_w = (n_dots - 1) * dot_gap + dot_r * 2
-    xN_txt = font_hud.render(f"x{multiplier}", True, HUD_TEXT)
-    right_pad = 12
-    xN_w = xN_txt.get_width()
-    dots_start_x = METER_RECT.x + (METER_RECT.width - xN_w - right_pad - total_dots_w) // 2 + dot_r
-
-    for i in range(n_dots):
-        dx = dots_start_x + i * dot_gap
-        circ = pygame.Surface((dot_r * 2, dot_r * 2), pygame.SRCALPHA)
-        color = DOT_ON if i < meter else DOT_OFF
-        pygame.draw.circle(circ, color, (dot_r, dot_r), dot_r)
-        screen.blit(circ, (dx - dot_r, METER_RECT.centery - dot_r))
-
-    screen.blit(xN_txt, (METER_RECT.right - xN_w - right_pad,
-                         METER_RECT.centery - xN_txt.get_height() // 2))
+def draw_hud():
+    draw_pause_button_in_game(active=True)
+    draw_hud_top_only()
+    draw_hud_bottom()
 
 # ====================================================================
 # Feedback
@@ -758,7 +762,44 @@ def draw_feedback():
         draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE)
 
 # ====================================================================
-# صفحه پایان — عدد بونوس ثابت، فقط HUD بالا انیمیشن
+# شمارش معکوس
+# ====================================================================
+def draw_countdown_circle():
+    cx = WINDOW_W // 2
+    cy = WINDOW_H // 2
+    r  = 60
+
+    pygame.draw.circle(screen, COUNTDOWN_BLUE, (cx, cy), r)
+
+    txt = font_countdown.render(str(countdown_number), True, WHITE)
+    screen.blit(txt, (cx - txt.get_width() // 2, cy - txt.get_height() // 2))
+
+def update_countdown(dt_ms):
+    global countdown_elapsed, countdown_number, countdown_last_played, countdown_active
+
+    if not countdown_active:
+        return False
+
+    countdown_elapsed += dt_ms
+
+    if countdown_last_played != countdown_number:
+        if not sound_muted:
+            play_sfx("countdown", 0.9)
+        countdown_last_played = countdown_number
+
+    if countdown_elapsed >= COUNTDOWN_MS:
+        countdown_elapsed = 0
+        countdown_number -= 1
+
+        if countdown_number < 1:
+            countdown_active = False
+            countdown_number = 0
+            return True
+
+    return False
+
+# ====================================================================
+# صفحه پایان
 # ====================================================================
 def draw_end_screen():
     global bonus_elapsed_ms
@@ -767,10 +808,8 @@ def draw_end_screen():
     displayed_extra = int(final_bonus * progress)
     shown_score = score_without_bonus + displayed_extra
 
-    # HUD بالا — انیمیشن
-    draw_hud_top_only(score_display=shown_score)
+    draw_hud_top_only(score_override=shown_score)
 
-    # دایره x Multiplier
     circle_cx = WINDOW_W // 2
     circle_cy = WINDOW_H // 2 - 80
     circle_r  = 60
@@ -782,17 +821,14 @@ def draw_end_screen():
     screen.blit(mult_txt, (circle_cx - mult_txt.get_width() // 2,
                            circle_cy - mult_txt.get_height() // 2))
 
-    # متن Score Bonus
     bonus_lbl = font_big.render("Score Bonus", True, WHITE)
     screen.blit(bonus_lbl, (WINDOW_W // 2 - bonus_lbl.get_width() // 2,
                             WINDOW_H // 2 + 10))
 
-    # عدد بونوس — ثابت
     bonus_num = font_bonus.render(str(final_bonus), True, WHITE)
     screen.blit(bonus_num, (WINDOW_W // 2 - bonus_num.get_width() // 2,
                             WINDOW_H // 2 + 70))
 
-    # راهنما — بعد از پایان انیمیشن
     if bonus_elapsed_ms >= BONUS_TOTAL_MS:
         hint = font_small.render("Press R to restart  |  ESC to quit",
                                  True, (200, 200, 200))
@@ -808,6 +844,18 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
+    # ---- شمارش معکوس ----
+    if countdown_active and not paused and not game_over:
+        draw_pause_button_in_game(active=False)
+        draw_hud_top_only(time_override=START_TIME,
+                          score_override=0,
+                          meter_override=0,
+                          multiplier_override=1)
+        draw_hud_bottom_countdown()
+        draw_countdown_circle()
+        return
+
+    # ---- بازی عادی ----
     if not paused and not game_over:
         if mode == "pointing":
             base_img = leaf_green_img
@@ -838,7 +886,7 @@ def draw_scene():
 # ====================================================================
 def move_leaves():
     global leaves
-    if game_over or paused:
+    if game_over or paused or countdown_active:
         return
 
     step = 2
@@ -860,7 +908,7 @@ def move_leaves():
     leaves = new_leaves
 
 # ====================================================================
-# امتیازدهی — عدد جدید multiplier رو برمی‌گردونه
+# امتیازدهی
 # ====================================================================
 def add_score():
     global score, multiplier, meter
@@ -900,7 +948,7 @@ def finish_game():
     game_over = True
 
     calculate_final_bonus()
-    score_without_bonus = score     # امتیاز قبل از بونوس — نمایش داده می‌شه
+    score_without_bonus = score
 
     bonus_elapsed_ms = 0
     bonus_loop_started = False
@@ -948,7 +996,7 @@ def check(player_dir):
     global mode, pointing_dir, moving_dir, orange_visual_dir
     global feedback_type, feedback_timer
 
-    if game_over or paused:
+    if game_over or paused or countdown_active:
         return
 
     correct = (pointing_dir == player_dir) if mode == "pointing" else (moving_dir == player_dir)
@@ -958,8 +1006,6 @@ def check(player_dir):
         feedback_type = "correct"
         feedback_timer = 400
 
-        # اگه ارتقا داشت → فقط صدای ارتقا
-        # وگرنه → صدای درست معمولی
         if not sound_muted:
             if upgraded_to == 2:
                 play_sfx("answerCorrectX2", 1.0)
@@ -992,6 +1038,8 @@ def restart_game():
     global feedback_timer, feedback_type
     global bonus_elapsed_ms, bonus_loop_started, bonus_count_started, bonus_end_played
     global score_without_bonus
+    global countdown_active, countdown_number, countdown_elapsed, countdown_last_played
+    global pending_gamestart_at, pending_music_at
 
     mode = random.choice(["pointing", "moving"])
     pointing_dir = random.choice(DIRS)
@@ -1015,14 +1063,21 @@ def restart_game():
     bonus_count_started = False
     bonus_end_played = False
 
+    countdown_active = True
+    countdown_number = COUNTDOWN_START
+    countdown_elapsed = 0
+    countdown_last_played = None
+
+    pending_gamestart_at = None
+    pending_music_at = None
+
     spawn_leaves()
-    start_game_audio()
+    # start_game_audio() اینجا صدا زده نمی‌شه — بعد از پایان شمارش معکوس، صدا زده می‌شه
 
 # ====================================================================
 # شروع
 # ====================================================================
 spawn_leaves()
-start_game_audio()
 
 running = True
 last_frame_ms = pygame.time.get_ticks()
@@ -1040,12 +1095,36 @@ while running:
 
     update_bonus_animation(dt_ms)
 
+    # ---- شمارش معکوس ----
+    if countdown_active:
+        just_finished = update_countdown(dt_ms)
+        if just_finished:
+            start_game_audio()
+
+    # ---- زمان‌بندی gameStart ----
+    if (pending_gamestart_at is not None
+        and not paused
+        and not countdown_active
+        and not game_over
+        and pygame.time.get_ticks() >= pending_gamestart_at):
+        if not sound_muted:
+            play_sfx("gameStart", 0.85)
+        pending_gamestart_at = None
+
+    # ---- زمان‌بندی موسیقی ----
+    if (pending_music_at is not None
+        and not paused
+        and not game_over
+        and pygame.time.get_ticks() >= pending_music_at):
+        start_music()
+        pending_music_at = None
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
         elif event.type == TIMER_EVENT:
-            if not game_over and not paused:
+            if not game_over and not paused and not countdown_active:
                 if time_left > 0:
                     time_left -= 1
                     if 1 <= time_left <= 5:
@@ -1054,17 +1133,16 @@ while running:
                 else:
                     finish_game()
 
-        elif event.type == GAMESTART_EVENT:
-            # بعد از 4 ثانیه (پایان windBlow)
-            if not sound_muted:
-                play_sfx("gameStart", 0.85)
-            pygame.time.set_timer(GAMESTART_EVENT, 0)  # فقط یک‌بار
-
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # در طول شمارش معکوس: pause کار نمی‌کنه
+            if countdown_active:
+                continue
+
             if not paused and not game_over:
                 if PAUSE_RECT.collidepoint(event.pos):
                     paused = True
                     show_howto = False
+                    cancel_startup_audio()
                     continue
 
             if paused:
@@ -1084,9 +1162,11 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                if not game_over:
+                if not game_over and not countdown_active:
                     paused = not paused
                     show_howto = False
+                    if paused:
+                        cancel_startup_audio()
                 continue
 
             if event.key == pygame.K_ESCAPE:
@@ -1096,15 +1176,16 @@ while running:
                     show_howto = False
                 elif paused:
                     paused = False
-                else:
+                elif not countdown_active:
                     paused = True
+                    cancel_startup_audio()
                 continue
 
             if event.key == pygame.K_r and game_over:
                 restart_game()
                 continue
 
-            if paused:
+            if paused or countdown_active:
                 continue
 
             if event.key in (pygame.K_UP, pygame.K_w):
