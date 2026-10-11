@@ -1,10 +1,15 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v22.1 — آیکن‌های منوی Pause)
+EBB AND FLOW — PYTHON RECREATION (v23 — Sound System Fixed)
 ====================================================================
-فقط آیکن‌های منوی Pause اضافه شدند.
-بک‌گراند سفید آیکن‌ها حذف می‌شود (روش alpha).
-بقیه چیزها دقیقاً مثل v22.
+بر پایه v22 با آیکن‌های منوی Pause.
+
+اصلاحات:
+  • موسیقی آبشار بلندتر (0.85)
+  • صدای wrong بلندتر (1.0)
+  • وقتی multiplier ارتقا می‌ره، فقط صدای ارتقا پخش می‌شه
+  • windBlow کامل پخش می‌شه، بعد gameStart
+  • عدد بونوس وسط صفحه ثابت، فقط HUD بالا انیمیشن داره
 ====================================================================
 """
 
@@ -12,7 +17,6 @@ import pygame
 import random
 import math
 import os
-import array
 
 # ====================================================================
 # راه‌اندازی
@@ -117,12 +121,10 @@ BG_CANDIDATES = [
 ]
 LEAF_GREEN_IMG  = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_green.png"
 LEAF_ORANGE_IMG = r"C:\Users\ASUS\Downloads\ebb_and_flow_leaf_yellow.png"
-MUSIC_PATH      = r"C:\Users\ASUS\Downloads\MUSIC.mp3"
 
-# ====================================================================
-# [NEW] آیکن‌های منوی Pause
-# ====================================================================
-ICON_DIR = r"C:\Users\ASUS\Documents\GitHub\Rafiei-tayebe\out\sprites_shared_assets"
+ROOT = r"C:\Users\ASUS\Documents\GitHub\Rafiei-tayebe\out"
+ICON_DIR = os.path.join(ROOT, "sprites_shared_assets")
+SND_DIR  = os.path.join(ROOT, "sounds", "wav")
 
 ICON_PATHS = {
     "resume":  os.path.join(ICON_DIR, "sharedAssets_resumeSprite_7302.png"),
@@ -135,13 +137,10 @@ ICON_PATHS = {
     "nomus":   os.path.join(ICON_DIR, "noMusic_iconSprite_6361.png"),
 }
 
+# ====================================================================
+# آیکن‌ها
+# ====================================================================
 def load_icon_no_bg(path, size=(28, 28), tolerance=40):
-    """
-    آیکن را لود می‌کند و پس‌زمینه‌اش را با تشخیص هوشمند حذف می‌کند.
-    رنگ گوشهٔ تصویر را به‌عنوان «بک‌گراند» در نظر می‌گیرد و همهٔ
-    پیکسل‌های نزدیک به آن را شفاف می‌کند.
-    آستانه: tolerance (هرچه بیشتر، حذف گسترده‌تر).
-    """
     if not os.path.exists(path):
         return None
     try:
@@ -151,40 +150,36 @@ def load_icon_no_bg(path, size=(28, 28), tolerance=40):
 
     w, h = img.get_size()
 
-    # تشخیص رنگ بک‌گراند از گوشه‌ها
     corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
     bg_samples = []
     for c in corners:
         r, g, b, a = img.get_at(c)
-        if a > 200:      # فقط نمونه‌های مات
+        if a > 200:
             bg_samples.append((r, g, b))
 
     if not bg_samples:
-        # فایل احتمالاً آلفای واقعی دارد — مستقیم استفاده کن
         return pygame.transform.smoothscale(img, size)
 
-    # میانگین رنگ بک‌گراند
     br = sum(c[0] for c in bg_samples) // len(bg_samples)
     bg_c = sum(c[1] for c in bg_samples) // len(bg_samples)
     bb = sum(c[2] for c in bg_samples) // len(bg_samples)
 
-    # حالا همه پیکسل‌های نزدیک به این رنگ رو شفاف کن
     for x in range(w):
         for y in range(h):
             r, g, b, a = img.get_at((x, y))
             dr = abs(r - br)
             dg = abs(g - bg_c)
             db = abs(b - bb)
+            total = dr + dg + db
 
-            if dr + dg + db < tolerance:
-                # پس‌زمینه — کاملاً شفاف
+            if total < tolerance:
                 img.set_at((x, y), (0, 0, 0, 0))
-            elif dr + dg + db < tolerance * 2:
-                # نزدیک به پس‌زمینه — نیمه‌شفاف برای smooth edges
-                alpha = int(255 * (dr + dg + db - tolerance) / tolerance)
+            elif total < tolerance * 2:
+                alpha = int(255 * (total - tolerance) / tolerance)
                 img.set_at((x, y), (r, g, b, max(0, min(255, alpha))))
 
     return pygame.transform.smoothscale(img, size)
+
 
 ICONS = {}
 for key, path in ICON_PATHS.items():
@@ -256,56 +251,77 @@ def get_rotated_leaf(base_img, direction):
     return rotated
 
 # ====================================================================
-# SFX
+# صداها
 # ====================================================================
-def make_tone(freq, duration_ms, volume=0.45):
-    if not AUDIO_OK:
+SND = {}
+
+SOUND_FILES = {
+    "answerCorrect":         "shared_answerCorrect.wav",
+    "answerCorrectX2":       "shared_answerCorrectX2.wav",
+    "answerCorrectX3":       "shared_answerCorrectX3.wav",
+    "answerCorrectX4":       "shared_answerCorrectX4.wav",
+    "answerWrong":           "shared_answerWrong.wav",
+    "counterCount":          "shared_counterCount.wav",
+    "counterCountLoopable":  "shared_counterCount_loopable.wav",
+    "counterEnd":            "shared_counterEnd.wav",
+    "gameStart":             "shared_gameStart.wav",
+    "gameEnd":               "shared_gameEnd.wav",
+    "timer":                 "shared_timer.wav",
+    "windBlow":              "scene_windBlow.wav",
+    "WaterStreamActualLoop": "scene_WaterStreamActualLoop.wav",
+}
+
+if AUDIO_OK:
+    for key, fn in SOUND_FILES.items():
+        path = os.path.join(SND_DIR, fn)
+        if os.path.exists(path):
+            try:
+                SND[key] = pygame.mixer.Sound(path)
+            except Exception:
+                pass
+
+sound_muted = False
+music_muted = False
+
+def play_sfx(name, volume=None):
+    if sound_muted or name not in SND:
         return None
-    sample_rate = 44100
-    n = int(sample_rate * duration_ms / 1000)
-    buf = array.array("h")
-    for i in range(n):
-        t = i / sample_rate
-        v = math.sin(2 * math.pi * freq * t)
-        fade_start = int(n * 0.7)
-        if i > fade_start:
-            v *= 1.0 - (i - fade_start) / (n - fade_start)
-        buf.append(int(v * volume * 32767))
-    try:
-        return pygame.mixer.Sound(buffer=buf.tobytes())
-    except Exception:
-        return None
+    snd = SND[name]
+    if volume is not None:
+        snd.set_volume(volume)
+    snd.play()
+    return snd
 
-SFX_CORRECT_1 = make_tone(880, 80, 0.50)
-SFX_CORRECT_2 = make_tone(1320, 140, 0.45)
-SFX_WRONG_1   = make_tone(220, 120, 0.55)
-SFX_WRONG_2   = make_tone(160, 180, 0.50)
-
-# ====================================================================
-# موسیقی
-# ====================================================================
-MUSIC_VOLUME = 0.12
-music_loaded = False
-
-if AUDIO_OK and os.path.exists(MUSIC_PATH):
-    try:
-        pygame.mixer.music.load(MUSIC_PATH)
-        pygame.mixer.music.set_volume(MUSIC_VOLUME)
-        music_loaded = True
-    except Exception:
-        music_loaded = False
-
-def start_music():
-    if music_loaded:
+def stop_sfx(name):
+    if name in SND:
         try:
-            pygame.mixer.music.play(loops=-1)
+            SND[name].stop()
         except Exception:
             pass
 
+# ====================================================================
+# موسیقی پس‌زمینه
+# ====================================================================
+MUSIC_VOLUME = 0.85
+music_playing = False
+
+def start_music():
+    global music_playing
+    if sound_muted or "WaterStreamActualLoop" not in SND:
+        return
+    try:
+        SND["WaterStreamActualLoop"].set_volume(MUSIC_VOLUME)
+        SND["WaterStreamActualLoop"].play(loops=-1)
+        music_playing = True
+    except Exception:
+        pass
+
 def stop_music():
-    if music_loaded:
+    global music_playing
+    if "WaterStreamActualLoop" in SND:
         try:
-            pygame.mixer.music.stop()
+            SND["WaterStreamActualLoop"].stop()
+            music_playing = False
         except Exception:
             pass
 
@@ -342,13 +358,10 @@ score        = 0
 time_left    = START_TIME
 multiplier   = MIN_MULTIPLIER
 meter        = 0
-stage        = 1
 final_bonus  = 0
 
 game_over    = False
 paused       = False
-sound_muted  = False
-music_muted  = False
 show_howto   = False
 
 NUM_LEAVES = 7
@@ -356,6 +369,46 @@ leaves = []
 
 feedback_type  = None
 feedback_timer = 0
+
+# ---- انیمیشن بونوس ----
+BONUS_COUNT_MS = 1500
+BONUS_TOTAL_MS = 4500
+bonus_elapsed_ms = 0
+bonus_loop_started = False
+bonus_count_started = False
+bonus_end_played = False
+
+# ---- امتیاز پایه قبل از بونوس (برای انیمیشن) ----
+score_without_bonus = 0
+
+# ====================================================================
+# رویدادها
+# ====================================================================
+TIMER_EVENT     = pygame.USEREVENT + 1
+GAMESTART_EVENT = pygame.USEREVENT + 2
+
+pygame.time.set_timer(TIMER_EVENT, 1000)
+
+# طول صدای باد = 4 ثانیه
+WIND_BLOW_DURATION_MS = 4000
+
+def start_game_audio():
+    """اول windBlow کامل، بعد gameStart، موسیقی همون اول."""
+    if sound_muted:
+        return
+    play_sfx("windBlow", 0.85)
+    start_music()
+    # gameStart با 4 ثانیه تأخیر
+    pygame.time.set_timer(GAMESTART_EVENT, WIND_BLOW_DURATION_MS, loops=1)
+
+
+def stop_all_audio():
+    stop_music()
+    for key in list(SND.keys()):
+        try:
+            SND[key].stop()
+        except Exception:
+            pass
 
 # ====================================================================
 # ساخت برگ‌ها
@@ -385,7 +438,7 @@ class MenuItem:
         self.key = key
         self.label_fn = label_fn
         self.action = action
-        self.icon_key = icon_key        # [NEW]
+        self.icon_key = icon_key
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.hover = False
     def get_label(self):
@@ -403,6 +456,8 @@ def menu_restart():
 def menu_toggle_sound():
     global sound_muted
     sound_muted = not sound_muted
+    if sound_muted:
+        stop_all_audio()
 
 def menu_toggle_music():
     global music_muted
@@ -431,7 +486,6 @@ def label_music():  return "Music Muted" if music_muted else "Mute Music"
 def label_quit():   return "Quit"
 def label_howto():  return "How To Play"
 
-# [NEW] اضافه شدن icon_key به آیتم‌ها
 menu_items = [
     MenuItem("resume",     label_resume,  menu_resume,        "resume"),
     MenuItem("restart",    label_restart, menu_restart,       "restart"),
@@ -446,8 +500,6 @@ MENU_H_ITEM  = 48
 MENU_GAP     = 4
 MENU_X       = (WINDOW_W - MENU_W) // 2
 MENU_Y_START = 130
-
-# [NEW] چون آیکن اضافه شده، متن جابه‌جا شد
 MENU_TEXT_LEFT_PAD = 56
 MENU_ICON_PAD      = 14
 
@@ -458,9 +510,6 @@ def update_menu_rects():
 
 BACK_RECT = pygame.Rect(WINDOW_W // 2 - 80, WINDOW_H - 90, 160, 44)
 
-# ====================================================================
-# [NEW] گرفتن آیکن مناسب برای هر گزینه
-# ====================================================================
 def get_icon_for(item):
     if item.key == "mute_sound":
         return ICONS.get("nosnd") if sound_muted else ICONS.get("sound")
@@ -516,7 +565,7 @@ def draw_pause_button_in_menu():
     screen.blit(txt, (PAUSE_MENU_RECT.x + 42, PAUSE_MENU_RECT.y + 10))
 
 # ====================================================================
-# منوی Pause — [NEW] با آیکن
+# منوی Pause
 # ====================================================================
 def draw_pause_menu():
     ov = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
@@ -538,7 +587,6 @@ def draw_pause_menu():
         fg = MENU_TEXT_HOVER if item.hover else MENU_TEXT
         pygame.draw.rect(screen, bg, item.rect)
 
-        # [NEW] نمایش آیکن کنار متن
         ic = get_icon_for(item)
         if ic:
             icon_rect = ic.get_rect(
@@ -659,7 +707,10 @@ def draw_hud():
     screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
                       MOVE_RECT.centery - txt.get_height() // 2))
 
-def draw_hud_top_only():
+def draw_hud_top_only(score_display=None):
+    """HUD بالا — بدون دکمه Pause. score_display اگه داده بشه، جایگزین score می‌شه."""
+    shown_score = score if score_display is None else score_display
+
     draw_hud_panel(TIME_RECT, HUD_BG)
     lbl = font_hud.render("TIME", True, HUD_TEXT)
     val = font_hud.render(f"0:{time_left:02d}", True, HUD_TEXT)
@@ -670,7 +721,7 @@ def draw_hud_top_only():
 
     draw_hud_panel(SCORE_RECT, HUD_BG)
     lbl = font_hud.render("SCORE", True, HUD_TEXT)
-    val = font_hud.render(str(score), True, HUD_TEXT)
+    val = font_hud.render(str(shown_score), True, HUD_TEXT)
     screen.blit(lbl, (SCORE_RECT.x + pad, SCORE_RECT.centery - lbl.get_height() // 2))
     screen.blit(val, (SCORE_RECT.right - val.get_width() - pad,
                       SCORE_RECT.centery - val.get_height() // 2))
@@ -707,9 +758,19 @@ def draw_feedback():
         draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE)
 
 # ====================================================================
-# صفحه پایان
+# صفحه پایان — عدد بونوس ثابت، فقط HUD بالا انیمیشن
 # ====================================================================
 def draw_end_screen():
+    global bonus_elapsed_ms
+
+    progress = min(1.0, bonus_elapsed_ms / BONUS_TOTAL_MS)
+    displayed_extra = int(final_bonus * progress)
+    shown_score = score_without_bonus + displayed_extra
+
+    # HUD بالا — انیمیشن
+    draw_hud_top_only(score_display=shown_score)
+
+    # دایره x Multiplier
     circle_cx = WINDOW_W // 2
     circle_cy = WINDOW_H // 2 - 80
     circle_r  = 60
@@ -721,18 +782,22 @@ def draw_end_screen():
     screen.blit(mult_txt, (circle_cx - mult_txt.get_width() // 2,
                            circle_cy - mult_txt.get_height() // 2))
 
+    # متن Score Bonus
     bonus_lbl = font_big.render("Score Bonus", True, WHITE)
     screen.blit(bonus_lbl, (WINDOW_W // 2 - bonus_lbl.get_width() // 2,
                             WINDOW_H // 2 + 10))
 
+    # عدد بونوس — ثابت
     bonus_num = font_bonus.render(str(final_bonus), True, WHITE)
     screen.blit(bonus_num, (WINDOW_W // 2 - bonus_num.get_width() // 2,
                             WINDOW_H // 2 + 70))
 
-    hint = font_small.render("Press R to restart  |  ESC to quit",
-                             True, (200, 200, 200))
-    screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
-                       WINDOW_H - 40))
+    # راهنما — بعد از پایان انیمیشن
+    if bonus_elapsed_ms >= BONUS_TOTAL_MS:
+        hint = font_small.render("Press R to restart  |  ESC to quit",
+                                 True, (200, 200, 200))
+        screen.blit(hint, (WINDOW_W // 2 - hint.get_width() // 2,
+                           WINDOW_H - 40))
 
 # ====================================================================
 # صحنه
@@ -766,7 +831,6 @@ def draw_scene():
         return
 
     if game_over:
-        draw_hud_top_only()
         draw_end_screen()
 
 # ====================================================================
@@ -796,17 +860,19 @@ def move_leaves():
     leaves = new_leaves
 
 # ====================================================================
-# امتیازدهی
+# امتیازدهی — عدد جدید multiplier رو برمی‌گردونه
 # ====================================================================
 def add_score():
-    global score, multiplier, meter, stage
+    global score, multiplier, meter
     score += BASE_SCORE * multiplier
     meter += 1
+    upgraded_to = None
     if meter >= METER_MAX:
         meter = 0
         if multiplier < MAX_MULTIPLIER:
             multiplier += 1
-        stage += 1
+            upgraded_to = multiplier
+    return upgraded_to
 
 def penalize():
     global multiplier, meter
@@ -818,19 +884,62 @@ def penalize():
 # ====================================================================
 # پایان بازی
 # ====================================================================
+score_without_bonus = 0
+
 def calculate_final_bonus():
     global final_bonus
     final_bonus = FINAL_BONUS_BASE * multiplier
     return final_bonus
 
 def finish_game():
-    global game_over, score
+    global game_over, score, score_without_bonus
+    global bonus_elapsed_ms, bonus_loop_started, bonus_count_started, bonus_end_played
+
     if game_over:
         return
     game_over = True
+
     calculate_final_bonus()
-    score += final_bonus
+    score_without_bonus = score     # امتیاز قبل از بونوس — نمایش داده می‌شه
+
+    bonus_elapsed_ms = 0
+    bonus_loop_started = False
+    bonus_count_started = False
+    bonus_end_played = False
+
     stop_music()
+
+    if not sound_muted:
+        play_sfx("gameEnd", 0.85)
+
+# ====================================================================
+# انیمیشن بونوس
+# ====================================================================
+def update_bonus_animation(dt_ms):
+    global bonus_elapsed_ms, bonus_loop_started, bonus_count_started, bonus_end_played
+
+    if not game_over:
+        return
+
+    prev_ms = bonus_elapsed_ms
+    bonus_elapsed_ms += dt_ms
+
+    if not bonus_loop_started and not sound_muted:
+        play_sfx("counterCountLoopable", 0.8)
+        bonus_loop_started = True
+
+    if (not bonus_count_started
+        and prev_ms < BONUS_COUNT_MS <= bonus_elapsed_ms):
+        stop_sfx("counterCountLoopable")
+        if not sound_muted:
+            play_sfx("counterCount", 0.85)
+        bonus_count_started = True
+
+    if (not bonus_end_played
+        and prev_ms < BONUS_TOTAL_MS <= bonus_elapsed_ms):
+        if not sound_muted:
+            play_sfx("counterEnd", 0.9)
+        bonus_end_played = True
 
 # ====================================================================
 # بررسی پاسخ
@@ -845,19 +954,27 @@ def check(player_dir):
     correct = (pointing_dir == player_dir) if mode == "pointing" else (moving_dir == player_dir)
 
     if correct:
-        add_score()
+        upgraded_to = add_score()
         feedback_type = "correct"
         feedback_timer = 400
-        if not sound_muted and SFX_CORRECT_1:
-            SFX_CORRECT_1.play()
-            pygame.time.set_timer(SFX2_CORRECT, 90, loops=1)
+
+        # اگه ارتقا داشت → فقط صدای ارتقا
+        # وگرنه → صدای درست معمولی
+        if not sound_muted:
+            if upgraded_to == 2:
+                play_sfx("answerCorrectX2", 1.0)
+            elif upgraded_to == 3:
+                play_sfx("answerCorrectX3", 1.0)
+            elif upgraded_to is not None and upgraded_to >= 4:
+                play_sfx("answerCorrectX4", 1.0)
+            else:
+                play_sfx("answerCorrect", 0.9)
     else:
         penalize()
         feedback_type = "wrong"
         feedback_timer = 400
-        if not sound_muted and SFX_WRONG_1:
-            SFX_WRONG_1.play()
-            pygame.time.set_timer(SFX2_WRONG, 130, loops=1)
+        if not sound_muted:
+            play_sfx("answerWrong", 1.0)
 
     mode = random.choice(["pointing", "moving"])
     pointing_dir = random.choice(DIRS)
@@ -870,9 +987,11 @@ def check(player_dir):
 # ====================================================================
 def restart_game():
     global mode, pointing_dir, moving_dir, orange_visual_dir
-    global score, time_left, multiplier, meter, stage, final_bonus
+    global score, time_left, multiplier, meter, final_bonus
     global game_over, paused
     global feedback_timer, feedback_type
+    global bonus_elapsed_ms, bonus_loop_started, bonus_count_started, bonus_end_played
+    global score_without_bonus
 
     mode = random.choice(["pointing", "moving"])
     pointing_dir = random.choice(DIRS)
@@ -883,33 +1002,27 @@ def restart_game():
     time_left = START_TIME
     multiplier = MIN_MULTIPLIER
     meter = 0
-    stage = 1
     final_bonus = 0
+    score_without_bonus = 0
 
     game_over = False
     paused = False
     feedback_timer = 0
     feedback_type = None
 
+    bonus_elapsed_ms = 0
+    bonus_loop_started = False
+    bonus_count_started = False
+    bonus_end_played = False
+
     spawn_leaves()
-
-    if not music_muted:
-        start_music()
-
-# ====================================================================
-# رویدادها
-# ====================================================================
-TIMER_EVENT  = pygame.USEREVENT + 1
-SFX2_CORRECT = pygame.USEREVENT + 5
-SFX2_WRONG   = pygame.USEREVENT + 6
-
-pygame.time.set_timer(TIMER_EVENT, 1000)
+    start_game_audio()
 
 # ====================================================================
 # شروع
 # ====================================================================
 spawn_leaves()
-start_music()
+start_game_audio()
 
 running = True
 last_frame_ms = pygame.time.get_ticks()
@@ -925,6 +1038,8 @@ while running:
     if feedback_timer > 0:
         feedback_timer -= dt_ms
 
+    update_bonus_animation(dt_ms)
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -933,16 +1048,17 @@ while running:
             if not game_over and not paused:
                 if time_left > 0:
                     time_left -= 1
+                    if 1 <= time_left <= 5:
+                        if not sound_muted:
+                            play_sfx("timer", 0.75)
                 else:
                     finish_game()
 
-        elif event.type == SFX2_CORRECT:
-            if not sound_muted and SFX_CORRECT_2:
-                SFX_CORRECT_2.play()
-
-        elif event.type == SFX2_WRONG:
-            if not sound_muted and SFX_WRONG_2:
-                SFX_WRONG_2.play()
+        elif event.type == GAMESTART_EVENT:
+            # بعد از 4 ثانیه (پایان windBlow)
+            if not sound_muted:
+                play_sfx("gameStart", 0.85)
+            pygame.time.set_timer(GAMESTART_EVENT, 0)  # فقط یک‌بار
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if not paused and not game_over:
