@@ -1,11 +1,12 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v29)
+EBB AND FLOW — PYTHON RECREATION (v29.1)
 ====================================================================
-تغییرات این نسخه:
-  • صداهای loop با pygame.mixer.Sound.play(loops=-1) پخش می‌شن
-  • counterCountLoopable تا آخرین لحظه انیمیشن بونوس پخش می‌شه
-  • counterEnd بلافاصله بعدش
+تغییرات نسبت به v29:
+  • HUD بالا شیشه‌ای‌تر (180)
+  • HUD پایین رنگی یکسان با حالت 123 (خاکستری شیشه‌ای، متن سفید)
+  • دکمه Pause شیشه‌ای
+  • دایره‌های Meter خالی روشن‌تر برای وضوح
 ====================================================================
 """
 
@@ -48,20 +49,25 @@ BLACK = (0, 0, 0)
 
 COUNTDOWN_BLUE = (36, 152, 178)
 
-HUD_BG   = (150, 160, 175, 235)
+# HUD ها شیشه‌ای
+HUD_BG   = (150, 160, 175, 180)
 HUD_TEXT = (25, 30, 40)
 
-DOT_ON  = (40, 45, 55)
-DOT_OFF = (110, 120, 135, 220)
+# دایره‌های Meter — پر تیره، خالی روشن
+DOT_ON  = (30, 35, 45)
+DOT_OFF = (200, 205, 215, 230)
 
 PAUSE_BAR = (77, 208, 225)
 
+# دکمه فعال — رنگی، بدون شیشه
 POINTING_ACTIVE   = (76, 175, 80)
 MOVING_ACTIVE     = (245, 166, 35)
-BTN_INACTIVE      = (190, 190, 190, 210)
-BTN_TEXT_INACTIVE = (0, 0, 0)
 
-COUNTDOWN_BTN_BG = (110, 120, 135, 210)
+# دکمه غیرفعال — شیشه‌ای، متن سفید (یکسان با حالت 123)
+BTN_INACTIVE      = (110, 120, 135, 180)
+BTN_TEXT_INACTIVE = WHITE
+
+COUNTDOWN_BTN_BG = (110, 120, 135, 180)
 COUNTDOWN_BTN_FG = WHITE
 
 CORRECT_GREEN = (138, 204, 66)
@@ -89,7 +95,6 @@ FINAL_BONUS_BASE = 250
 COUNTDOWN_START = 3
 COUNTDOWN_MS    = 1000
 
-# ---- انیمیشن بونوس ----
 BONUS_MS_PER_POINT = 5
 BONUS_MIN_MS       = 1500
 BONUS_MAX_MS       = 20000
@@ -324,7 +329,6 @@ if AUDIO_OK:
 sound_muted = False
 music_muted = False
 
-# کانال‌های مخصوص صداهای loop
 _loop_channels = {}
 
 def play_sfx(name, volume=None):
@@ -344,7 +348,6 @@ def stop_sfx(name):
             pass
 
 def play_loop(name, volume=0.8):
-    """پخش صدا با loop بی‌نهایت روی یه کانال اختصاصی."""
     if sound_muted or name not in SND:
         return
     try:
@@ -357,7 +360,6 @@ def play_loop(name, volume=0.8):
         pass
 
 def stop_loop(name):
-    """قطع صداهای loop."""
     if name in _loop_channels:
         try:
             _loop_channels[name].stop()
@@ -633,14 +635,21 @@ def draw_crossmark(cx, cy, size=90, color=WRONG_RED):
     pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 12)
 
 # ====================================================================
-# دکمه Pause
+# دکمه Pause — شیشه‌ای
 # ====================================================================
 def draw_pause_button_in_game(active=True):
     hovered = PAUSE_RECT.collidepoint(pygame.mouse.get_pos())
-    btn_bg = (45, 180, 235) if hovered else BLACK
-    bar_color = WHITE if hovered else PAUSE_BAR
 
-    pygame.draw.rect(screen, btn_bg, PAUSE_RECT)
+    if hovered:
+        btn_bg = (45, 180, 235, 220)
+    else:
+        btn_bg = (0, 0, 0, 130)
+
+    panel = pygame.Surface((PAUSE_RECT.width, PAUSE_RECT.height), pygame.SRCALPHA)
+    panel.fill(btn_bg)
+    screen.blit(panel, (PAUSE_RECT.x, PAUSE_RECT.y))
+
+    bar_color = WHITE if hovered else PAUSE_BAR
 
     bar_w, bar_h, gap = 6, 24, 10
     total_w = bar_w * 2 + gap
@@ -783,31 +792,29 @@ def draw_hud_top_only(time_override=None, score_override=None,
 
 def draw_hud_bottom():
     if mode == "pointing":
-        point_bg, point_fg = POINTING_ACTIVE, WHITE
-        move_bg, move_fg = BTN_INACTIVE, BTN_TEXT_INACTIVE
+        # POINTING فعال — رنگی، بدون شیشه
+        pygame.draw.rect(screen, POINTING_ACTIVE, POINT_RECT)
+        pt_fg = WHITE
+        # MOVING غیرفعال — شیشه‌ای
+        panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height), pygame.SRCALPHA)
+        panel.fill(BTN_INACTIVE)
+        screen.blit(panel, (MOVE_RECT.x, MOVE_RECT.y))
+        mv_fg = BTN_TEXT_INACTIVE
     else:
-        point_bg, point_fg = BTN_INACTIVE, BTN_TEXT_INACTIVE
-        move_bg, move_fg = MOVING_ACTIVE, WHITE
+        # POINTING غیرفعال — شیشه‌ای
+        panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height), pygame.SRCALPHA)
+        panel.fill(BTN_INACTIVE)
+        screen.blit(panel, (POINT_RECT.x, POINT_RECT.y))
+        pt_fg = BTN_TEXT_INACTIVE
+        # MOVING فعال — رنگی
+        pygame.draw.rect(screen, MOVING_ACTIVE, MOVE_RECT)
+        mv_fg = WHITE
 
-    if isinstance(point_bg, tuple) and len(point_bg) == 4:
-        p_panel = pygame.Surface((POINT_RECT.width, POINT_RECT.height), pygame.SRCALPHA)
-        p_panel.fill(point_bg)
-        screen.blit(p_panel, (POINT_RECT.x, POINT_RECT.y))
-    else:
-        pygame.draw.rect(screen, point_bg, POINT_RECT)
-
-    txt = font_btn.render("POINTING", True, point_fg)
+    txt = font_btn.render("POINTING", True, pt_fg)
     screen.blit(txt, (POINT_RECT.centerx - txt.get_width() // 2,
                       POINT_RECT.centery - txt.get_height() // 2))
 
-    if isinstance(move_bg, tuple) and len(move_bg) == 4:
-        m_panel = pygame.Surface((MOVE_RECT.width, MOVE_RECT.height), pygame.SRCALPHA)
-        m_panel.fill(move_bg)
-        screen.blit(m_panel, (MOVE_RECT.x, MOVE_RECT.y))
-    else:
-        pygame.draw.rect(screen, move_bg, MOVE_RECT)
-
-    txt = font_btn.render("MOVING", True, move_fg)
+    txt = font_btn.render("MOVING", True, mv_fg)
     screen.blit(txt, (MOVE_RECT.centerx - txt.get_width() // 2,
                       MOVE_RECT.centery - txt.get_height() // 2))
 
@@ -1020,7 +1027,6 @@ def finish_game():
         return
     game_over = True
 
-    # قطع هر loop احتمالی از قبل
     stop_loop("counterCountLoopable")
 
     calculate_final_bonus()
@@ -1038,7 +1044,7 @@ def finish_game():
         play_sfx("gameEnd", 0.85)
 
 # ====================================================================
-# انیمیشن بونوس — با loop بی‌نهایت
+# انیمیشن بونوس
 # ====================================================================
 def update_bonus_animation(dt_ms):
     global bonus_elapsed_ms, bonus_loop_started, bonus_end_played
@@ -1112,7 +1118,6 @@ def restart_game():
     global countdown_active, countdown_number, countdown_elapsed, countdown_last_played
     global pending_gamestart_at, pending_music_at
 
-    # قطع هر loop
     stop_loop("counterCountLoopable")
 
     mode = random.choice(["pointing", "moving"])
