@@ -1,12 +1,10 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v29.1)
+EBB AND FLOW — PYTHON RECREATION (v29.5)
 ====================================================================
-تغییرات نسبت به v29:
-  • HUD بالا شیشه‌ای‌تر (180)
-  • HUD پایین رنگی یکسان با حالت 123 (خاکستری شیشه‌ای، متن سفید)
-  • دکمه Pause شیشه‌ای
-  • دایره‌های Meter خالی روشن‌تر برای وضوح
+تغییرات نسبت به v29.4:
+  • windBlow و gameStart همزمان پخش می‌شوند
+  • pending_gamestart_at حذف شد
 ====================================================================
 """
 
@@ -373,14 +371,16 @@ def stop_loop(name):
             pass
 
 # ====================================================================
-# موسیقی
+# موسیقی (صدای آب) — فقط با music_muted کنترل می‌شود
 # ====================================================================
 MUSIC_VOLUME = 0.85
 music_playing = False
 
 def start_music():
     global music_playing
-    if sound_muted or "WaterStreamActualLoop" not in SND:
+    if music_muted:
+        return
+    if "WaterStreamActualLoop" not in SND:
         return
     try:
         SND["WaterStreamActualLoop"].set_volume(MUSIC_VOLUME)
@@ -397,6 +397,19 @@ def stop_music():
             music_playing = False
         except Exception:
             pass
+
+def ensure_music_playing():
+    """اگر موسیقی میوت نیست و در حال پخش نیست، شروعش کن.
+       در پاز پخش می‌شود، فقط در شمارش معکوس و پایان بازی نه."""
+    global music_playing
+    if music_muted:
+        return
+    if "WaterStreamActualLoop" not in SND:
+        return
+    if countdown_active or game_over:
+        return
+    if not music_playing:
+        start_music()
 
 # ====================================================================
 # فونت‌ها
@@ -457,7 +470,6 @@ bonus_end_played = False
 score_without_bonus = 0
 
 WIND_START_MS = 3000
-pending_gamestart_at = None
 pending_music_at = None
 
 # ====================================================================
@@ -470,20 +482,20 @@ pygame.time.set_timer(TIMER_EVENT, 1000)
 # توابع صوتی شروع
 # ====================================================================
 def start_game_audio():
-    global pending_gamestart_at, pending_music_at
+    global pending_music_at
     if sound_muted:
         return
+    # windBlow و gameStart همزمان پخش می‌شوند
     play_sfx("windBlow", 0.85)
+    play_sfx("gameStart", 0.85)
     now = pygame.time.get_ticks()
-    pending_gamestart_at = now + WIND_START_MS
     pending_music_at = now + WIND_START_MS
 
 
 def cancel_startup_audio():
-    global pending_gamestart_at, pending_music_at
+    global pending_music_at
     stop_sfx("windBlow")
-    stop_music()
-    pending_gamestart_at = None
+    stop_sfx("gameStart")
     pending_music_at = None
 
 
@@ -540,6 +552,7 @@ class MenuItem:
 def menu_resume():
     global paused
     paused = False
+    ensure_music_playing()
 
 def menu_restart():
     global paused
@@ -550,15 +563,27 @@ def menu_toggle_sound():
     global sound_muted
     sound_muted = not sound_muted
     if sound_muted:
-        stop_all_audio()
+        # فقط صداهای افکت را قطع کن، موسیقی را کاری نداشته باش
+        stop_loop("counterCountLoopable")
+        for key in list(SND.keys()):
+            if key == "WaterStreamActualLoop":
+                continue  # موسیقی را دست نزن
+            try:
+                SND[key].stop()
+            except Exception:
+                pass
 
 def menu_toggle_music():
-    global music_muted
+    global music_muted, music_playing
     music_muted = not music_muted
     if music_muted:
         stop_music()
+        music_playing = False
     else:
-        start_music()
+        # اگر در شمارش معکوس یا پایان بازی نیستیم، موسیقی را شروع کن
+        # (در پاز هم باید پخش شود)
+        if not countdown_active and not game_over:
+            start_music()
 
 def menu_quit():
     global running
@@ -1116,9 +1141,10 @@ def restart_game():
     global bonus_elapsed_ms, bonus_loop_started, bonus_end_played, bonus_total_ms
     global score_without_bonus
     global countdown_active, countdown_number, countdown_elapsed, countdown_last_played
-    global pending_gamestart_at, pending_music_at
+    global pending_music_at
 
     stop_loop("counterCountLoopable")
+    stop_music()
 
     mode = random.choice(["pointing", "moving"])
     pointing_dir = random.choice(DIRS)
@@ -1147,7 +1173,6 @@ def restart_game():
     countdown_elapsed = 0
     countdown_last_played = None
 
-    pending_gamestart_at = None
     pending_music_at = None
 
     spawn_leaves()
@@ -1177,15 +1202,6 @@ while running:
         just_finished = update_countdown(dt_ms)
         if just_finished:
             start_game_audio()
-
-    if (pending_gamestart_at is not None
-        and not paused
-        and not countdown_active
-        and not game_over
-        and pygame.time.get_ticks() >= pending_gamestart_at):
-        if not sound_muted:
-            play_sfx("gameStart", 0.85)
-        pending_gamestart_at = None
 
     if (pending_music_at is not None
         and not paused
@@ -1217,6 +1233,7 @@ while running:
                     paused = True
                     show_howto = False
                     cancel_startup_audio()
+                    # موسیقی در پاز ادامه دارد
                     continue
 
             if paused:
@@ -1227,6 +1244,7 @@ while running:
                 else:
                     if PAUSE_MENU_RECT.collidepoint(event.pos):
                         paused = False
+                        ensure_music_playing()
                         continue
                     update_menu_rects()
                     for item in menu_items:
@@ -1241,6 +1259,9 @@ while running:
                     show_howto = False
                     if paused:
                         cancel_startup_audio()
+                        # موسیقی در پاز ادامه دارد
+                    else:
+                        ensure_music_playing()
                 continue
 
             if event.key == pygame.K_ESCAPE:
@@ -1250,9 +1271,11 @@ while running:
                     show_howto = False
                 elif paused:
                     paused = False
+                    ensure_music_playing()
                 elif not countdown_active:
                     paused = True
                     cancel_startup_audio()
+                    # موسیقی در پاز ادامه دارد
                 continue
 
             if event.key == pygame.K_r and game_over:
