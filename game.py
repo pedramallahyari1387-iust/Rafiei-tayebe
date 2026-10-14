@@ -1,12 +1,11 @@
 """
 ====================================================================
-EBB AND FLOW — PYTHON RECREATION (v25)
+EBB AND FLOW — PYTHON RECREATION (v26)
 ====================================================================
-اضافه شده در این نسخه:
-  • شمارش معکوس 3-2-1 با دایره آبی
-  • windBlow بلافاصله بعد از شمارش، بعد gameStart + موسیقی با تأخیر
-  • تأخیر بین wind و gameStart = 3 ثانیه (به‌جای 4)
-  • Pause در ثانیهٔ اول باعث قطع wind و کنسل شدن شروع نمی‌شه
+اضافه شد در این نسخه:
+  • تیک سبز از sharedAssets_correctWebSprite_7660.png (بک‌گراند حذف + سفید → سبز)
+  • ضربدر قرمز از sharedAssets_incorrectWebSprite_4960.png (بک‌گراند حذف + سفید → قرمز)
+  • بقیه چیزها دقیقاً مثل نسخه قبل
 ====================================================================
 """
 
@@ -65,8 +64,9 @@ BTN_TEXT_INACTIVE = (0, 0, 0)
 COUNTDOWN_BTN_BG = (110, 120, 135, 210)
 COUNTDOWN_BTN_FG = WHITE
 
-CORRECT_GREEN = (76, 224, 76)
-WRONG_ORANGE  = (245, 130, 32)
+# رنگ تیک/ضربدر — از تصاویر ارسالی
+CORRECT_GREEN = (138, 204, 66)     # سبز روشن تیک
+WRONG_RED     = (245, 130, 32)     # نارنجی/قرمز ضربدر
 
 MENU_ITEM_BG    = (25, 40, 60)
 MENU_ITEM_HOVER = (45, 180, 235)
@@ -87,7 +87,6 @@ MIN_MULTIPLIER   = 1
 MAX_MULTIPLIER   = 10
 FINAL_BONUS_BASE = 250
 
-# ---- شمارش معکوس شروع ----
 COUNTDOWN_START = 3
 COUNTDOWN_MS    = 1000
 
@@ -143,6 +142,10 @@ ICON_PATHS = {
     "nomus":   os.path.join(ICON_DIR, "noMusic_iconSprite_6361.png"),
 }
 
+# مسیر تیک و ضربدر
+CHECKMARK_PATH = os.path.join(ICON_DIR, "sharedAssets_correctWebSprite_7660.png")
+CROSSMARK_PATH = os.path.join(ICON_DIR, "sharedAssets_incorrectWebSprite_4960.png")
+
 # ====================================================================
 # آیکن‌ها
 # ====================================================================
@@ -184,9 +187,76 @@ def load_icon_no_bg(path, size=(28, 28), tolerance=40):
     return pygame.transform.smoothscale(img, size)
 
 
+# ====================================================================
+# تابع ویژه برای تیک و ضربدر: حذف بک‌گراند تیره + تبدیل سفید به رنگ هدف
+# ====================================================================
+def load_colored_mark(path, target_color, size=(80, 80), tolerance=60):
+    """
+    1. تصویر را لود می‌کند
+    2. بک‌گراند تیره را حذف می‌کند
+    3. رنگ سفید را به target_color تبدیل می‌کند
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        img = pygame.image.load(path).convert_alpha()
+    except Exception:
+        return None
+
+    w, h = img.get_size()
+
+    # ---- تشخیص رنگ بک‌گراند از گوشه‌ها ----
+    corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
+    bg_samples = []
+    for c in corners:
+        r, g, b, a = img.get_at(c)
+        if a > 200:
+            bg_samples.append((r, g, b))
+
+    if not bg_samples:
+        br, bg_c, bb = 20, 25, 35    # حدس: بک‌گراند تیره
+    else:
+        br = sum(c[0] for c in bg_samples) // len(bg_samples)
+        bg_c = sum(c[1] for c in bg_samples) // len(bg_samples)
+        bb = sum(c[2] for c in bg_samples) // len(bg_samples)
+
+    # ---- پیمایش همه پیکسل‌ها ----
+    tr, tg, tb = target_color
+    for x in range(w):
+        for y in range(h):
+            r, g, b, a = img.get_at((x, y))
+
+            # فاصله از بک‌گراند تیره
+            bg_dist = abs(r - br) + abs(g - bg_c) + abs(b - bb)
+
+            # روشنایی پیکسل (برای تشخیص سفید بودن)
+            brightness = (r + g + b) // 3
+
+            if bg_dist < tolerance:
+                # بک‌گراند → شفاف
+                img.set_at((x, y), (0, 0, 0, 0))
+            elif brightness > 200:
+                # پیکسل سفید/روشن → رنگ هدف با همان آلفا
+                img.set_at((x, y), (tr, tg, tb, a))
+            elif brightness > 150:
+                # پیکسل نیمه‌روشن → نیمه‌رنگ با آلفای متناسب
+                factor = (brightness - 150) / 50.0
+                nr = int(tr * factor + r * (1 - factor))
+                ng = int(tg * factor + g * (1 - factor))
+                nb = int(tb * factor + b * (1 - factor))
+                img.set_at((x, y), (nr, ng, nb, a))
+            # بقیه پیکسل‌ها دست‌نخورده
+
+    return pygame.transform.smoothscale(img, size)
+
+
 ICONS = {}
 for key, path in ICON_PATHS.items():
     ICONS[key] = load_icon_no_bg(path, size=(28, 28))
+
+# تیک سبز و ضربدر قرمز
+CHECKMARK_IMG = load_colored_mark(CHECKMARK_PATH, CORRECT_GREEN, size=(90, 90))
+CROSSMARK_IMG = load_colored_mark(CROSSMARK_PATH, WRONG_RED, size=(90, 90))
 
 # ====================================================================
 # پس‌زمینه
@@ -380,7 +450,6 @@ leaves = []
 feedback_type  = None
 feedback_timer = 0
 
-# ---- انیمیشن بونوس ----
 BONUS_COUNT_MS = 1500
 BONUS_TOTAL_MS = 4500
 bonus_elapsed_ms = 0
@@ -390,8 +459,7 @@ bonus_end_played = False
 
 score_without_bonus = 0
 
-# ---- زمان‌بندی صداهای شروع ----
-WIND_START_MS = 3000     # تأخیر بین wind و gameStart/موسیقی
+WIND_START_MS = 3000
 pending_gamestart_at = None
 pending_music_at = None
 
@@ -405,7 +473,6 @@ pygame.time.set_timer(TIMER_EVENT, 1000)
 # توابع صوتی شروع
 # ====================================================================
 def start_game_audio():
-    """شروع windBlow فوری + زمان‌بندی gameStart و موسیقی با تأخیر."""
     global pending_gamestart_at, pending_music_at
     if sound_muted:
         return
@@ -416,7 +483,6 @@ def start_game_audio():
 
 
 def cancel_startup_audio():
-    """قطع صداهای شروع و کنسل زمان‌بندی‌ها (برای pause)."""
     global pending_gamestart_at, pending_music_at
     stop_sfx("windBlow")
     stop_music()
@@ -540,20 +606,32 @@ def get_icon_for(item):
     return ICONS.get(item.icon_key)
 
 # ====================================================================
-# بازخورد بصری
+# بازخورد بصری — با تصاویر واقعی
 # ====================================================================
-def draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN):
+def draw_checkmark(cx, cy, size=90, color=CORRECT_GREEN):
+    """اگر تصویر واقعی موجوده از اون استفاده کن، وگرنه fallback به رسم دستی."""
+    if CHECKMARK_IMG:
+        rect = CHECKMARK_IMG.get_rect(center=(cx, cy))
+        screen.blit(CHECKMARK_IMG, rect)
+        return
+    # fallback
     pts = [
         (cx - size * 0.4, cy),
         (cx - size * 0.1, cy + size * 0.3),
         (cx + size * 0.4, cy - size * 0.3),
     ]
-    pygame.draw.lines(screen, color, False, pts, 10)
+    pygame.draw.lines(screen, color, False, pts, 12)
 
-def draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE):
+def draw_crossmark(cx, cy, size=90, color=WRONG_RED):
+    """اگر تصویر واقعی موجوده از اون استفاده کن، وگرنه fallback به رسم دستی."""
+    if CROSSMARK_IMG:
+        rect = CROSSMARK_IMG.get_rect(center=(cx, cy))
+        screen.blit(CROSSMARK_IMG, rect)
+        return
+    # fallback
     off = size * 0.35
-    pygame.draw.line(screen, color, (cx - off, cy - off), (cx + off, cy + off), 10)
-    pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 10)
+    pygame.draw.line(screen, color, (cx - off, cy - off), (cx + off, cy + off), 12)
+    pygame.draw.line(screen, color, (cx + off, cy - off), (cx - off, cy + off), 12)
 
 # ====================================================================
 # دکمه Pause
@@ -757,9 +835,9 @@ def draw_feedback():
         return
     cx, cy = WINDOW_W // 2, WINDOW_H // 2
     if feedback_type == "correct":
-        draw_checkmark(cx, cy, size=70, color=CORRECT_GREEN)
+        draw_checkmark(cx, cy)
     else:
-        draw_crossmark(cx, cy, size=70, color=WRONG_ORANGE)
+        draw_crossmark(cx, cy)
 
 # ====================================================================
 # شمارش معکوس
@@ -844,7 +922,6 @@ def draw_scene():
     else:
         screen.fill(BG_FALLBACK)
 
-    # ---- شمارش معکوس ----
     if countdown_active and not paused and not game_over:
         draw_pause_button_in_game(active=False)
         draw_hud_top_only(time_override=START_TIME,
@@ -855,7 +932,6 @@ def draw_scene():
         draw_countdown_circle()
         return
 
-    # ---- بازی عادی ----
     if not paused and not game_over:
         if mode == "pointing":
             base_img = leaf_green_img
@@ -1072,7 +1148,6 @@ def restart_game():
     pending_music_at = None
 
     spawn_leaves()
-    # start_game_audio() اینجا صدا زده نمی‌شه — بعد از پایان شمارش معکوس، صدا زده می‌شه
 
 # ====================================================================
 # شروع
@@ -1095,13 +1170,11 @@ while running:
 
     update_bonus_animation(dt_ms)
 
-    # ---- شمارش معکوس ----
     if countdown_active:
         just_finished = update_countdown(dt_ms)
         if just_finished:
             start_game_audio()
 
-    # ---- زمان‌بندی gameStart ----
     if (pending_gamestart_at is not None
         and not paused
         and not countdown_active
@@ -1111,7 +1184,6 @@ while running:
             play_sfx("gameStart", 0.85)
         pending_gamestart_at = None
 
-    # ---- زمان‌بندی موسیقی ----
     if (pending_music_at is not None
         and not paused
         and not game_over
@@ -1134,7 +1206,6 @@ while running:
                     finish_game()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # در طول شمارش معکوس: pause کار نمی‌کنه
             if countdown_active:
                 continue
 
